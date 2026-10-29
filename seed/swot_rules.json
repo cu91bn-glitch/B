@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "version": "1.0",
+    "note": "قواعد تصنيف SWOT قابلة للتعديل. عدّل العتبات هنا وستنعكس على جميع التحليلات."
+  },
+  "rules": {
+    "strength": {
+      "label": "قوة",
+      "mean_threshold": 4.0,
+      "ci_lower_threshold": 3.5,
+      "condition": "mean >= mean_threshold AND ci_lower >= ci_lower_threshold"
+    },
+    "weakness": {
+      "label": "ضعف",
+      "mean_threshold": 3.0,
+      "negative_ratio_threshold": 0.3,
+      "condition": "mean < mean_threshold OR negative_ratio >= negative_ratio_threshold"
+    },
+    "opportunity": {
+      "label": "فرصة",
+      "mean_threshold": 3.8,
+      "axis": "external",
+      "condition": "axis == external AND mean >= mean_threshold"
+    },
+    "threat": {
+      "label": "تهديد",
+      "mean_threshold": 3.0,
+      "axis": "external",
+      "condition": "axis == external AND mean < mean_threshold"
+    },
+    "challenge": {
+      "label": "تحدٍّ",
+      "condition": "importance_high AND performance_low (ربع التحدي في مصفوفة الأهمية-الأداء) OR فجوة دالة بين صفين"
+    }
+  },
+  "confidence": {
+    "high": { "min_n": 30, "label": "مرتفعة" },
+    "medium": { "min_n": 10, "label": "متوسطة" },
+    "low": { "min_n": 5, "label": "منخفضة" },
+    "insufficient": { "min_n": 0, "label": "بيانات غير كافية (n<5)" }
+  },
+  "priority": {
+    "weights": {
+      "severity": 0.4,
+      "affected_ratio": 0.3,
+      "indicator_coverage_gap": 0.3
+    },
+    "bands": [
+      { "max": 0.3, "label": "منخفضة" },
+      { "max": 0.6, "label": "متوسطة" },
+      { "max": 1.0, "label": "مرتفعة" }
+    ]
+  },
+  "report_warning": "الأداة لا تشخّص حالات فردية؛ الاستبيانات صياغة أصلية لم تخضع لتحكيم سيكومتري كامل.",
+  "min_n_for_report": 5
+}

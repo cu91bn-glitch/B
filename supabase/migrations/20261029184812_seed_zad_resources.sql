@@ -1,0 +1,32 @@
+-- بذور الموارد من resources.json (28 موردا) - idempotent
+
+INSERT INTO zad_resources (id, slug, title, category, page, drive_url, qr_url, qr_note) VALUES
+('org_manual', 'org-manual', 'الدليل التنظيمي والإجرائي لمدارس التعليم العام', 'الأدلة التنظيمية', 3, 'https://drive.google.com/drive/folders/1lmFdipbzOXyAZNCZDx171y7h2mhIdKl9?usp=sharing', 'https://q.me-qr.com/pfa072w6', NULL),
+('org_plan', 'org-plan', 'خطة التوجيه الطلابي: البرامج والخدمات والمؤشرات', 'الأدلة التنظيمية', 3, 'https://drive.google.com/drive/folders/1Pcg_kZmoF0hSFkpe867K6L3k8bEtPpc7?usp=sharing', 'https://q.me-qr.com/sa9ezqov', NULL),
+('org_eval', 'org-eval', 'نموذج تقييم أداء الموجه الطلابي', 'الأدلة التنظيمية', 3, 'https://drive.google.com/drive/folders/1K_D7bDAhSGRW0DzftO1_KD3Bbm8DDttM?usp=sharing', 'https://q.me-qr.com/ghxpdrwo', NULL),
+('course_principles', 'course-principles', 'دورة: أسس ومبادئ التوجيه الطلابي', 'الدورات التأسيسية', 14, 'https://drive.google.com/drive/folders/1IhoXtpD8pZ2ewnGx0f4jFL7ifh5Zt3nR?usp=sharing', 'https://q.me-qr.com/hekze0xk', NULL),
+('course_skills', 'course-skills', 'دورة: المهارات الأساسية للموجه الطلابي', 'الدورات التأسيسية', 14, 'https://drive.google.com/drive/folders/1isNDifyZYh5XCJtOH69Pm8NonMao3XcI?usp=sharing', 'https://q.me-qr.com/jwyis0id', NULL),
+('course_prevention', 'course-prevention', 'دورة: الوقاية النفسية الأولية', 'الدورات التأسيسية', 14, 'https://drive.google.com/drive/folders/1CIcXmG4-tJuDhUOTRM3FZqiBWWccdK1l?usp=sharing', 'https://q.me-qr.com/midxcrgb', NULL),
+('course_growth', 'course-growth', 'دورة: خصائص النمو', 'الدورات التأسيسية', 14, 'https://drive.google.com/drive/folders/1SowWmm4gYl2foOAa-mMRU3oC24gZ9Mu_?usp=sharing', 'https://q.me-qr.com/ykgd5pba', NULL),
+('noor_services', 'noor-services', 'أبرز الخدمات التقنية في نظام نور (التوثيق الإلكتروني)', 'نظام نور', 21, 'https://drive.google.com/drive/folders/1vskEQuObW-Nr-hVp0HRBHeDsewSO4jPz?usp=sharing', 'https://q.me-qr.com/q4rew9g8', NULL),
+('g_conduct', 'g-conduct', 'قواعد السلوك والمواظبة', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/file/d/1zZsMaRzkR6oMUJGgLSIxSs2bkYoZyOwv/view?usp=sharing', 'https://q.me-qr.com/hw0bc49t', NULL),
+('g_uniform', 'g-uniform', 'دليل الزي المدرسي', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/file/d/1Ak6GTOkddiskWffsgGXyHLxO3eHAAf4x/view?usp=sharing', 'https://q.me-qr.com/rj0eo7f9', NULL),
+('g_phones', 'g-phones', 'استخدام الهواتف المحمولة', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/file/d/1yeQrpk4Vj22LxyZVHLPuX19LGYi5ohsy/view?usp=sharing', 'https://q.me-qr.com/sqwsemny', NULL),
+('g_family', 'g-family', 'إطار توثيق العلاقة بين الأسرة والمدرسة', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/13DSqGEOwDF23mRrmfFtsMaQloPXnwznB?usp=sharing', 'https://q.me-qr.com/b5ybf7zk', NULL),
+('g_honor', 'g-honor', 'إطار الاحتفاء والتكريم', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/1Lv6ZRohfY7waK62ZS8cmcLZp6-E6OcaF?usp=sharing', 'https://q.me-qr.com/6er55gl3', NULL),
+('g_commit', 'g-commit', 'نموذج الالتزام المدرسي / استمارة حصر البيانات', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/19YcHKdNBijMJFDlKhrCwxsGbMd2jWR-A?usp=sharing', 'https://q.me-qr.com/dmbgb38g', NULL),
+('g_special', 'g-special', 'رعاية ودعم الفئات الخاصة', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/1cygoMzgoxD4qBnGm-q_qftyb8mZml6q7?usp=sharing', 'https://q.me-qr.com/q33ax3au', NULL),
+('g_interventions', 'g-interventions', 'التدخلات التربوية', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/1QRTxqOIv7pTfktAy7Sr-70Qb8bOfCG8b?usp=sharing', 'https://q.me-qr.com/xlqtqzp3', NULL),
+('g_council', 'g-council', 'المجلس الطلابي', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/1xJ6E6TGbTYYOHAKvdR6_kLMdARlxgN8l?usp=sharing', 'https://q.me-qr.com/w0hnfbgd', NULL),
+('g_psych', 'g-psych', 'التعامل مع المشكلات النفسية', 'أدلة التوجيه الطلابي', 24, 'https://drive.google.com/drive/folders/1FeYX-PlILBcygzCs7Fq19vC1Vo5d22ZZ?usp=sharing', 'https://q.me-qr.com/drhmjla1', NULL),
+('p_intro_week', 'p-intro-week', 'الأسبوع التمهيدي', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1t-wwR9fYU1PWzdcfKPe1FTZVzdhd3Z56?usp=sharing', NULL, 'تعذر استخراج رمز QR; استخدم الرابط ثم ولد الرمز'),
+('p_orientation', 'p-orientation', 'التهيئة الإرشادية', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1c-qpe-0D1toxw84PGDaU1E5WI6Fz2GHa?usp=sharing', NULL, 'تعذر استخراج رمز QR; استخدم الرابط ثم ولد الرمز'),
+('p_positive', 'p-positive', 'تعزيز السلوك الإيجابي', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1fgpD775oaHcGiChrLArk_KHutUCyFmyA?usp=sharing', 'https://q.me-qr.com/ch06cu89', NULL),
+('p_rifq', 'p-rifq', 'رفق: نحو بيئة آمنة (خفض العنف)', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1UjbTDZQBjjTKUg7mE0n3UpBJZtJQYL0O?usp=sharing', 'https://q.me-qr.com/4ev84z33', NULL),
+('p_career', 'p-career', 'التوجيه المهني', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1yLPfM5UwCqSGtmyI06KDkDYuUdvKLDTp?usp=sharing', 'https://q.me-qr.com/k5rn7hwt', NULL),
+('p_success', 'p-success', 'تعزيز مهارات النجاح', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1HQGv9ik17r5fUnzW_-5XO_8uRakCLCCo?usp=sharing', 'https://q.me-qr.com/hd3yrq2f', NULL),
+('p_safe_net', 'p-safe-net', 'الاستخدام الآمن للإنترنت', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/19GtPPqjyqltJBlygb89MkFan3Qb35WPy?usp=sharing', 'https://q.me-qr.com/vxxg51ur', NULL),
+('p_motivation', 'p-motivation', 'تنمية الدافعية', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1-mdc57E4k-eYC9jO4PgXOCYBCDqjA72I?usp=sharing', 'https://q.me-qr.com/rx35ipx7', NULL),
+('p_crisis', 'p-crisis', 'التوجيه وقت الأزمات', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1fvcFNTY4iE3eEjeaG9gv3ZsOCJfhgyjm?usp=sharing', 'https://q.me-qr.com/74www9x1', NULL),
+('p_problems', 'p-problems', 'قائمة المشكلات', 'أدلة برامج التوجيه الطلابي', 25, 'https://drive.google.com/drive/folders/1juSu7nYyLaFHDO59gtMmB7NiDR343__U?usp=sharing', 'https://q.me-qr.com/75k8h3kh', NULL)
+ON CONFLICT (id) DO NOTHING;
