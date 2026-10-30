@@ -10,7 +10,8 @@ import {
   FlaskConical, Palette, Cpu, Heart, Activity, Zap, Trophy, Loader2,
   Link2, Copy, BarChart2, PieChart, ShieldAlert,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { downloadHtmlAsPdf, brandHeader, sectionTitle, esc } from '@/lib/pdfExport';
+import type { EvidenceRecord } from '@/lib/supabase';
 import {
   counselor, kpis, programs, performanceCriteria,
   studentCouncilMeetings, parentMeetings, honorStudents,
@@ -26,7 +27,7 @@ import { ParentCouncilSection } from '@/components/ParentCouncilSection';
 import { SatisfactionSurveysSection } from '@/components/SatisfactionSurveysSection';
 import { CaseRegistrySection } from '@/components/CaseRegistrySection';
 import { Phase3MonitoringSection } from '@/components/Phase3MonitoringSection';
-import { SurveyEngineSection } from '@/components/SurveyEngineSection';
+import { SurveyEngineSection, StandaloneSpecSurvey } from '@/components/SurveyEngineSection';
 import { ZadLibrarySection } from '@/components/ZadLibrarySection';
 import { SurveyAdminSection } from '@/components/SurveyAdminSection';
 import { SurveyAnalysisSection } from '@/components/SurveyAnalysisSection';
@@ -38,7 +39,7 @@ import { Plus, QrCode, FileQuestion } from 'lucide-react';
 import {
   fetchEvidenceCount, fetchEvidence,
   submitConsultation, fetchConsultationStats,
-  saveCareerResult, fetchCareerStats,
+  saveCareerResult, fetchCareerStats, fetchZadResources,
 } from '@/lib/supabase';
 
 // ============ MODAL COMPONENT ============
@@ -132,11 +133,8 @@ function Header({ activeSection, setActiveSection, searchQuery, setSearchQuery }
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <Logo variant="icon" size={40} />
-              <div className="hidden sm:block">
-                <h1 className="text-sm font-bold text-slate-800 font-cairo leading-tight">بوصلة</h1>
-                <p className="text-xs text-slate-500">منصة الموجّه الطلابي</p>
-              </div>
+              <Logo variant="full" size={46} />
+              <h1 className="sr-only">بوصلة — منصة الموجّه الطلابي</h1>
             </div>
 
             {/* Search */}
@@ -1353,6 +1351,44 @@ function DigitalClinic() {
 }
 
 // ============ IMPACT MEASUREMENT ============
+/** التقرير الختامي للموجه بصيغة HTML (يحوَّل إلى PDF مع دعم كامل للعربية) */
+function buildFinalReportHtml(allEvidence: EvidenceRecord[]): string {
+  const cell = 'padding:6px 8px; border-bottom:1px solid #eef2f7; font-size:11.5px;';
+  const head = 'padding:7px 8px; font-size:11.5px; font-weight:700; text-align:right; background:#10324a; color:#fff;';
+  const table = (headers: string[], rows: string[][]) => `
+    <table style="margin-bottom:10px; border:1px solid #e2e8f0;">
+      <thead><tr>${headers.map(h => `<th style="${head}">${esc(h)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r, i) => `<tr style="background:${i % 2 ? '#f8fafc' : '#fff'};">${r.map(c => `<td style="${cell}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>`;
+  return [
+    brandHeader('التقرير الختامي للموجه الطلابي', `${counselor.school} — العام الدراسي 1448هـ`),
+    `<div data-pdf-block style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:12.5px;">
+      <strong>${esc(counselor.name)}</strong> — ${esc(counselor.region)}
+    </div>`,
+    sectionTitle('1', 'مؤشرات الأداء الرئيسية'),
+    table(['المؤشر', 'القيمة'], kpis.map(k => [esc(k.label), `${esc(k.value)} ${esc(k.unit)}`])),
+    sectionTitle('2', 'البرامج الإرشادية المنفذة'),
+    table(['البرنامج', 'التصنيف', 'الحالة', 'المؤشر', 'المستفيدون'], programs.map(p => [esc(p.title), esc(p.categoryLabel), esc(p.statusLabel), `<span class="ltr">${esc(p.etecIndicator)}</span>`, esc(p.beneficiaries)])),
+    sectionTitle('3', 'مؤشرات الأداء الوظيفي (13 بندًا)'),
+    table(['#', 'البند', 'الوزن', 'الدرجة'], performanceCriteria.map(c => [esc(c.id), esc(c.title), `${esc(c.weight)}%`, `${esc(c.score)} / 10`])),
+    sectionTitle('4', `الشواهد المرفوعة (${allEvidence.length})`),
+    allEvidence.length
+      ? table(['الشاهد', 'التصنيف', 'الملف'], allEvidence.map(e => [esc(e.title), esc(e.category), `<span class="ltr" style="font-size:10.5px; color:#64748b;">${esc(e.file_name)}</span>`]))
+      : '<p data-pdf-block style="font-size:12px; color:#94a3b8;">لا توجد شواهد مرفوعة بعد.</p>',
+    sectionTitle('5', 'تحليلات الاستبيانات (قبل/بعد)'),
+    table(['الاستبيان', 'قبل', 'بعد', 'التحسن'], surveyAnalytics.map(s => [esc(s.label), `${s.pre}%`, `${s.post}%`, `<span style="color:${s.post - s.pre >= 0 ? '#059669' : '#dc2626'}; font-weight:700;">${s.post - s.pre >= 0 ? '+' : ''}${s.post - s.pre}%</span>`])),
+    sectionTitle('6', 'تكامل نظام نور'),
+    table(['البند', 'القيمة'], [
+      ['إجمالي الجلسات', esc(noorSystemData.totalSessions)],
+      ['جلسات فردية', esc(noorSystemData.individualSessions)],
+      ['جلسات جماعية', esc(noorSystemData.groupSessions)],
+      ['سجلات مرفوعة', esc(noorSystemData.uploadedRecords)],
+      ['نسبة التغطية', `${esc(noorSystemData.coverage)}%`],
+    ]),
+    `<div data-pdf-block style="text-align:center; font-size:10.5px; color:#94a3b8; margin-top:16px;">أُنشئ هذا التقرير تلقائيًا بواسطة بوصلة — منصة الموجّه الطلابي</div>`,
+  ].join('');
+}
+
 function ImpactMeasurement() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -1366,116 +1402,8 @@ function ImpactMeasurement() {
     setExporting(true);
     try {
       const allEvidence = await fetchEvidence();
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      let y = 20;
-
-      // Title
-      doc.setFillColor(5, 150, 105);
-      doc.rect(0, 0, pageWidth, 35, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.text(counselor.school, pageWidth / 2, 15, { align: 'center' });
-      doc.setFontSize(11);
-      doc.text('بوصلة - منصة الموجّه الطلابي 1448هـ', pageWidth / 2, 25, { align: 'center' });
-      doc.setFontSize(9);
-      doc.text(counselor.name + ' - ' + counselor.region, pageWidth / 2, 31, { align: 'center' });
-
-      y = 45;
-      doc.setTextColor(40, 40, 40);
-
-      // KPIs
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text('مؤشرات الأداء الرئيسية', margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(10);
-      kpis.forEach(k => {
-        doc.text(`- ${k.label}: ${k.value} ${k.unit}`, margin + 5, y);
-        y += 6;
-      });
-      y += 4;
-
-      // Programs
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text('البرامج الإرشادية المنفذة', margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      programs.forEach(p => {
-        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
-        doc.text(`- ${p.title} (${p.categoryLabel}) - ${p.statusLabel} - ${p.etecIndicator} - ${p.beneficiaries} مستفيد`, margin + 5, y);
-        y += 5;
-      });
-      y += 4;
-
-      // Performance Criteria
-      if (y > pageHeight - 30) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text('مؤشرات الأداء الوظيفي (13 بنداً)', margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      performanceCriteria.forEach(c => {
-        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
-        doc.text(`${c.id}. ${c.title} - الوزن: ${c.weight}% - الدرجة: ${c.score}/10`, margin + 5, y);
-        y += 5;
-      });
-      y += 4;
-
-      // Evidence
-      if (y > pageHeight - 20) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text(`الشواهد المرفوعة (${allEvidence.length})`, margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      allEvidence.forEach(e => {
-        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
-        doc.text(`- ${e.title} (${e.category}) - ${e.file_name}`, margin + 5, y);
-        y += 5;
-      });
-      y += 4;
-
-      // Survey Analytics
-      if (y > pageHeight - 30) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text('تحليلات الاستبيانات (قبل/بعد)', margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      surveyAnalytics.forEach(s => {
-        if (y > pageHeight - 20) { doc.addPage(); y = 20; }
-        doc.text(`- ${s.label}: قبل ${s.pre}% -> بعد ${s.post}% (+${s.post - s.pre}%)`, margin + 5, y);
-        y += 5;
-      });
-      y += 4;
-
-      // Noor System
-      if (y > pageHeight - 30) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.setTextColor(5, 150, 105);
-      doc.text('تكامل نظام نور', margin, y);
-      y += 7;
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      doc.text(`- إجمالي الجلسات: ${noorSystemData.totalSessions}`, margin + 5, y); y += 5;
-      doc.text(`- جلسات فردية: ${noorSystemData.individualSessions} | جلسات جماعية: ${noorSystemData.groupSessions}`, margin + 5, y); y += 5;
-      doc.text(`- سجلات مرفوعة: ${noorSystemData.uploadedRecords} | نسبة التغطية: ${noorSystemData.coverage}%`, margin + 5, y); y += 5;
-
-      // Footer
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text(`تم إنشاء التقرير: ${new Date().toLocaleDateString('en-GB')} - ${counselor.school}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-
-      doc.save(`تقرير-الموجه-الطلابي-${new Date().toISOString().split('T')[0]}.pdf`);
+      const html = buildFinalReportHtml(allEvidence);
+      await downloadHtmlAsPdf(html, `تقرير-الموجه-الطلابي-${new Date().toISOString().split('T')[0]}.pdf`);
       setShowExportModal(true);
     } catch {
       setShowExportModal(true);
@@ -1709,18 +1637,74 @@ function CounselorProfile() {
   );
 }
 
+type PublicRoute =
+  | { kind: 'survey'; slug: string }
+  | { kind: 'spec-survey'; id: string }
+  | { kind: 'zad'; slug: string }
+  | null;
+
+/** قراءة الرابط عند فتح المنصة: روابط الاستبيانات والموارد تفتح صفحة مستقلة بدل الصفحة الرئيسية */
+function readPublicRoute(): PublicRoute {
+  const params = new URLSearchParams(window.location.search);
+  const r = params.get('r');
+  if (r) return { kind: 'survey', slug: r };
+  const survey = params.get('survey');
+  if (survey) return { kind: 'spec-survey', id: survey };
+  const s = params.get('s');
+  if (s) return { kind: 'zad', slug: s };
+  return null;
+}
+
+function clearPublicRoute() {
+  const url = new URL(window.location.href);
+  ['r', 's', 'survey'].forEach(key => url.searchParams.delete(key));
+  window.history.replaceState({}, '', url);
+}
+
+/** رابط مختصر لمورد من مكتبة زاد (?s=slug): يحوّل مباشرة إلى رابط المورد، وإن لم يوجد يجرب الاستبيانات المنشورة */
+function ZadResourceRedirect({ slug, onFallback, onClose }: { slug: string; onFallback: () => void; onClose: () => void }) {
+  const [notFound, setNotFound] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchZadResources()
+      .then(list => {
+        if (cancelled) return;
+        const resource = list.find(item => item.slug === slug);
+        const target = resource?.drive_url || resource?.qr_url;
+        if (target) window.location.replace(target);
+        else onFallback();
+      })
+      .catch(() => { if (!cancelled) setNotFound(true); });
+    return () => { cancelled = true; };
+  }, [slug, onFallback]);
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4" dir="rtl">
+      <div className="max-w-md text-center">
+        {notFound ? (
+          <>
+            <p className="text-slate-700">تعذر فتح المورد، تحقق من الاتصال ثم أعد المحاولة</p>
+            <button onClick={onClose} className="mt-4 text-sm text-cyan-700 hover:underline">الذهاب إلى الصفحة الرئيسية</button>
+          </>
+        ) : (
+          <Loader2 className="w-6 h-6 animate-spin text-slate-400 mx-auto" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [activeSection, setActiveSection] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
-  const [publicSurveySlug, setPublicSurveySlug] = useState<string | null>(null);
+  const [route, setRoute] = useState<PublicRoute>(() => readPublicRoute());
+
+  const closeRoute = useCallback(() => { clearPublicRoute(); setRoute(null); }, []);
+  const zadFallback = useCallback(() => {
+    setRoute(current => (current?.kind === 'zad' ? { kind: 'survey', slug: current.slug } : current));
+  }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rSlug = params.get('r');
-    if (rSlug) { setPublicSurveySlug(rSlug); return; }
-    const sSlug = params.get('s');
-    if (sSlug) { setPublicSurveySlug(sSlug); return; }
-    const zadSlug = params.get('zad');
+    const zadSlug = new URLSearchParams(window.location.search).get('zad');
     if (zadSlug) {
       const el = document.getElementById('zad-library');
       if (el) {
@@ -1730,15 +1714,9 @@ function App() {
     }
   }, []);
 
-  if (publicSurveySlug) {
-    return <PublicSurveyPage slug={publicSurveySlug} onClose={() => {
-      setPublicSurveySlug(null);
-      const url = new URL(window.location.href);
-      url.searchParams.delete('r');
-      url.searchParams.delete('s');
-      window.history.replaceState({}, '', url);
-    }} />;
-  }
+  if (route?.kind === 'survey') return <PublicSurveyPage slug={route.slug} onClose={closeRoute} />;
+  if (route?.kind === 'spec-survey') return <StandaloneSpecSurvey surveyId={route.id} onClose={closeRoute} />;
+  if (route?.kind === 'zad') return <ZadResourceRedirect slug={route.slug} onFallback={zadFallback} onClose={closeRoute} />;
 
   return (
     <div className="min-h-screen bg-slate-50" dir="rtl">

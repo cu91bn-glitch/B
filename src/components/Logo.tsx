@@ -6,7 +6,7 @@ interface LogoProps {
 
 export function Logo({ variant = 'full', size = 44, className = '' }: LogoProps) {
   const srcMap: Record<string, string> = {
-    'full': '/brand/bawsala-lockup.svg',
+    'full': '/brand/bawsala-lockup.png',
     'icon': '/brand/bawsala-icon.svg',
     'mono-light': '/brand/logo-mono-light.svg',
     'mono-dark': '/brand/logo-mono-dark.svg',

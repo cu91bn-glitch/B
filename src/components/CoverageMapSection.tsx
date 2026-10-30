@@ -4,8 +4,7 @@ import {
   CheckCircle2, Clock, Lightbulb, X,
   ChevronDown, ChevronUp, TrendingUp,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { downloadHtmlAsPdf, brandHeader } from '@/lib/pdfExport';
 import {
   fetchEvidence, fetchReadinessStats,
   fetchZadIndicators, fetchZadPrograms, fetchZadProgramIndicators,
@@ -150,26 +149,7 @@ export function CoverageMapSection() {
       const html = buildReportHtml(coverageData, matrixPrograms, programIndicators, {
         totalReady, totalGaps, totalEvidence, overallPct, indicatorsCount: indicators.length,
       });
-      const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;right:-9999px;top:0;width:794px;padding:40px;background:#fff;font-family:Cairo,sans-serif;direction:rtl;color:#1e293b;font-size:14px;line-height:1.7;';
-      container.innerHTML = html;
-      document.body.appendChild(container);
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#fff', windowWidth: 794 });
-      document.body.removeChild(container);
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageW = 210, pageH = 297;
-      const imgH = (canvas.height * pageW) / canvas.width;
-      let heightLeft = imgH;
-      let pos = 0;
-      pdf.addImage(imgData, 'PNG', 0, pos, pageW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        pos -= pageH; pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, pos, pageW, imgH);
-        heightLeft -= pageH;
-      }
-      pdf.save(`quarterly-coverage-${new Date().toISOString().slice(0, 10)}.pdf`);
+      await downloadHtmlAsPdf(html, `quarterly-coverage-${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch {
       setError('فشل إنشاء التقرير');
     } finally {
@@ -532,23 +512,13 @@ function buildReportHtml(
   programIndicators: ProgramIndicator[],
   summary: { totalReady: number; totalGaps: number; totalEvidence: number; overallPct: number; indicatorsCount: number },
 ): string {
-  const dateStr = new Date().toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
   const readyCount = summary.totalReady;
   const gapIndicators = coverage.filter(c => c.gap > 0);
 
   return `
-    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1e40af; padding-bottom:16px; margin-bottom:24px;">
-      <div>
-        <div style="font-size:22px; font-weight:800; color:#10324a;">بوصلة</div>
-        <div style="font-size:13px; color:#0e7490; margin-top:4px;">منصة الموجّه الطلابي</div>
-        <div style="font-size:13px; color:#64748b; margin-top:4px;">التقرير الفصلي لخريطة تغطية المؤشرات</div>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-size:14px; color:#94a3b8;">${dateStr}</div>
-      </div>
-    </div>
+    ${brandHeader('التقرير الفصلي لخريطة تغطية المؤشرات', 'منصة الموجّه الطلابي')}
 
-    <div style="display:flex; gap:8px; margin-bottom:20px;">
+    <div data-pdf-block style="display:flex; gap:8px; margin-bottom:20px;">
       <div style="flex:1; background:#ecfdf5; border-radius:10px; padding:14px; text-align:center;">
         <div style="font-size:28px; font-weight:800; color:#059669;">${summary.overallPct.toFixed(0)}%</div><div style="font-size:11px; color:#059669;">نسبة التغطية</div>
       </div>
@@ -579,7 +549,7 @@ function buildReportHtml(
       <tbody>
         ${coverage.map((c, i) => `
           <tr style="background:${i % 2 ? '#f8fafc' : '#fff'};">
-            <td style="padding:5px; font-family:monospace; color:#94a3b8;">${c.indicator.code}</td>
+            <td style="padding:5px; color:#64748b; direction:ltr; text-align:right; white-space:nowrap;">${c.indicator.code}</td>
             <td style="padding:5px;">${c.indicator.text}</td>
             <td style="padding:5px; text-align:center;">${c.evidenceCount}</td>
             <td style="padding:5px; text-align:center; color:#2563eb;">${c.surveyReports}</td>
@@ -594,18 +564,18 @@ function buildReportHtml(
     ${gapIndicators.length > 0 ? `
       <h2 style="font-size:16px; font-weight:700; color:#1e3a8a; border-right:4px solid #f59e0b; padding-right:12px; margin:20px 0 12px;">الفجوات والإجراءات المقترحة</h2>
       ${gapIndicators.map(c => `
-        <div style="border:1px solid #fed7aa; border-radius:10px; padding:12px; margin-bottom:8px; background:#fffbeb;">
+        <div data-pdf-block style="border:1px solid #fed7aa; border-radius:10px; padding:12px; margin-bottom:8px; background:#fffbeb;">
           <div style="font-weight:700; font-size:12px; color:#92400e;">${c.indicator.code} — ${c.indicator.text}</div>
           <div style="font-size:11px; color:#78716c; margin-top:4px;">
-            <span style="font-weight:600;">الفجوة:</span> ${c.gap} شواهد ·
-            <span style="font-weight:600;">الإجراء:</span> ${c.proposedAction || 'إنشاء شاهد جديد'}
+            <span style="font-weight:700;">الفجوة:</span> ${c.gap} شواهد ·
+            <span style="font-weight:700;">الإجراء:</span> ${c.proposedAction || 'إنشاء شاهد جديد'}
           </div>
         </div>
       `).join('')}
     ` : ''}
 
-    <div style="margin-top:24px; text-align:center; font-size:11px; color:#cbd5e1;">
-      تم إنشاء هذا التقرير تلقائيًا بواسطة بوصلة — منصة الموجّه الطلابي — ${new Date().toLocaleString('ar-SA')}
+    <div data-pdf-block style="margin-top:24px; text-align:center; font-size:11px; color:#94a3b8;">
+      أُنشئ هذا التقرير تلقائيًا بواسطة بوصلة — منصة الموجّه الطلابي
     </div>
   `;
 }

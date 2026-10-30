@@ -5,7 +5,8 @@ import {
   CheckCircle2, GripVertical, Settings, Send,
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import jsPDF from 'jspdf';
+import { downloadHtmlAsPdf, brandHeader, qrCardsHtml, esc } from '@/lib/pdfExport';
+import { audienceLabel } from '@/lib/labels';
 import {
   fetchSurveys, createSurvey, updateSurvey, deleteSurvey, duplicateSurvey,
   fetchSurveyResponses,
@@ -122,7 +123,7 @@ export function SurveyAdminSection() {
                   <h3 className="text-sm font-bold text-slate-800 font-cairo flex-1">{s.title}</h3>
                   <span className={`text-[11px] rounded-full px-2.5 py-1 ${statusBadge[s.status] || statusBadge.draft}`}>{s.status === 'draft' ? 'مسودة' : s.status === 'published' ? 'منشور' : 'مؤرشف'}</span>
                 </div>
-                <p className="text-xs text-slate-500 mb-1">الفئة: {s.audience}</p>
+                <p className="text-xs text-slate-500 mb-1">الفئة: {audienceLabel(s.audience)}</p>
                 <p className="text-xs text-slate-400 mb-3">{s.sections.length} قسم · {s.sections.reduce((a, sec) => a + sec.items.length, 0)} فقرة</p>
                 <div className="flex flex-wrap gap-1.5">
                   <button onClick={() => setEditing(s)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100"><Edit3 className="w-3.5 h-3.5" /> تحرير</button>
@@ -425,45 +426,24 @@ function PublishPanel({ survey, onClose }: { survey: SurveyDefinition; onClose: 
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const printLabelPdf = () => {
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    pdf.setFontSize(22);
-    pdf.setTextColor(30, 30, 30);
-    pdf.text(survey.title, 105, 30, { align: 'center', maxWidth: 180 });
-    pdf.setFontSize(11);
-    pdf.setTextColor(100, 100, 100);
-    const introLines = pdf.splitTextToSize(survey.intro, 170);
-    pdf.text(introLines, 105, 42, { align: 'center' });
-    if (qrUrl) pdf.addImage(qrUrl, 'PNG', 75, 60, 60, 60);
-    pdf.setFontSize(9);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text(url, 105, 128, { align: 'center' });
-    pdf.setFontSize(8);
-    pdf.text('امسح الرمز للإجابة على الاستبيان', 105, 135, { align: 'center' });
-    pdf.save(`survey-label-${slug}.pdf`);
+  const printLabelPdf = async () => {
+    const html = `
+      ${brandHeader('ملصق استبيان')}
+      <div data-pdf-block style="text-align:center; padding:24px 20px;">
+        <div style="font-size:26px; font-weight:800; color:#10324a; line-height:1.5;">${esc(survey.title)}</div>
+        <div style="font-size:14px; color:#475569; line-height:1.9; margin:12px auto 0; max-width:600px;">${esc(survey.intro)}</div>
+        ${qrUrl ? `<img src="${qrUrl}" style="width:260px; height:260px; display:block; margin:26px auto 12px;" />` : ''}
+        <div style="font-size:16px; font-weight:700; color:#0e7490;">امسح الرمز للإجابة على الاستبيان</div>
+        <div style="font-size:11px; color:#94a3b8; direction:ltr; margin-top:8px; word-break:break-all;">${esc(url)}</div>
+      </div>`;
+    await downloadHtmlAsPdf(html, `survey-label-${slug}.pdf`);
   };
 
   const printCardsPdf = async () => {
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const cardW = 90, cardH = 55, gapX = 10, gapY = 8;
-    const startX = (210 - (cardW * 2 + gapX)) / 2;
-    const startY = 12;
-    for (let pos = 0; pos < 8; pos++) {
-      const col = pos % 2, row = Math.floor(pos / 2);
-      const x = startX + col * (cardW + gapX), y = startY + row * (cardH + gapY);
-      pdf.setDrawColor(220, 220, 220);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, y, cardW, cardH, 3, 3, 'S');
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(survey.title, x + 4, y + 7, { maxWidth: cardW - 8 });
-      if (qrUrl) pdf.addImage(qrUrl, 'PNG', x + cardW - 28, y + 6, 22, 22);
-      pdf.setFontSize(6);
-      pdf.setTextColor(120, 120, 120);
-      pdf.text(url, x + 4, y + cardH - 4, { maxWidth: cardW - 8 });
-    }
-    pdf.save(`survey-cards-${slug}.pdf`);
+    const cards = Array.from({ length: 8 }, () => ({ title: survey.title, subtitle: 'امسح الرمز للإجابة', qrDataUrl: qrUrl || undefined, url }));
+    await downloadHtmlAsPdf(qrCardsHtml(cards), `survey-cards-${slug}.pdf`);
   };
+
 
   return (
     <section className="py-8 bg-slate-50 min-h-screen" dir="rtl">

@@ -176,22 +176,34 @@ export function analyzeSurvey(
         .map(v => reverseScore(v, section.items[i].reverse ?? false));
       return { key, scores, mean: mean(scores), n: scores.length };
     });
-    const allScores = perItemScores.flatMap(s => s.scores);
-    const avg = mean(allScores);
-    const sd = stdDev(allScores, avg);
-    const [ciLo, ciHi] = confidenceInterval(avg, sd, allScores.length);
+    // وحدة التحليل هي المستجيب: متوسط كل مستجيب في البُعد، ثم الإحصاءات على المستجيبين.
+    // (حساب الانحراف وفترة الثقة على كل الإجابات الفردية يضخّم n ويعطي ثقة أعلى من الحقيقية)
+    const respondentMeans = responses
+      .map(r => {
+        const vals = itemKeys
+          .map((key, i) => {
+            const v = r.answers?.[key];
+            return v === undefined ? undefined : reverseScore(v, section.items[i].reverse ?? false);
+          })
+          .filter((v): v is number => v !== undefined);
+        return vals.length ? mean(vals) : undefined;
+      })
+      .filter((v): v is number => v !== undefined);
+    const avg = mean(respondentMeans);
+    const sd = stdDev(respondentMeans, avg);
+    const [ciLo, ciHi] = confidenceInterval(avg, sd, respondentMeans.length);
     return {
       sectionId: section.id,
       sectionName: section.name,
       swotAxis: section.swot_axis || 'internal',
-      n: allScores.length,
+      n: respondentMeans.length,
       mean: avg,
       stdDev: sd,
       ciLower: ciLo,
       ciUpper: ciHi,
       negativeRatio: negativeRatio(responses, section),
       band: bandLabel(avg),
-      confidenceLevel: confidenceLevel(allScores.length),
+      confidenceLevel: confidenceLevel(respondentMeans.length),
       itemStats: perItemScores.map((s, i) => ({
         text: section.items[i].text,
         mean: s.mean,

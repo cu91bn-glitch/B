@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { BookOpen, ExternalLink, Loader2, Printer, Search, QrCode as QrIcon, FileText, Filter } from 'lucide-react';
 import QRCode from 'qrcode';
-import jsPDF from 'jspdf';
+import { downloadHtmlAsPdf, brandHeader, qrCardsHtml } from '@/lib/pdfExport';
 import { fetchZadResources, type ZadResource } from '@/lib/supabase';
 
 const categoryColors: Record<string, string> = {
@@ -61,54 +61,16 @@ export function ZadLibrarySection() {
 
   const printPdfCards = async () => {
     const items = filtered.length > 0 ? filtered : resources;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = 210, pageH = 297;
-    const cardW = 90, cardH = 55;
-    const gapX = 10, gapY = 8;
-    const startX = (pageW - (cardW * 2 + gapX)) / 2;
-    const startY = 12;
-    let idx = 0;
-
-    for (const batch of chunk(items, 8)) {
-      if (idx > 0) pdf.addPage();
-      let pos = 0;
-      for (const r of batch) {
-        const col = pos % 2;
-        const row = Math.floor(pos / 2);
-        const x = startX + col * (cardW + gapX);
-        const y = startY + row * (cardH + gapY);
-
-        pdf.setDrawColor(220, 220, 220);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, y, cardW, cardH, 3, 3, 'S');
-
-        pdf.setFontSize(8);
-        pdf.setTextColor(100, 100, 100);
-        pdf.text(r.category, x + 4, y + 7, { maxWidth: cardW - 8 });
-
-        pdf.setFontSize(9);
-        pdf.setTextColor(30, 30, 30);
-        const titleLines = pdf.splitTextToSize(r.title, cardW - 40);
-        pdf.text(titleLines.slice(0, 3), x + 4, y + 14);
-
-        const qrData = qrCache[r.slug];
-        if (qrData) {
-          pdf.addImage(qrData, 'PNG', x + cardW - 28, y + 6, 22, 22);
-        }
-
-        pdf.setFontSize(6);
-        pdf.setTextColor(120, 120, 120);
-        pdf.text(shortLink(r.slug), x + 4, y + cardH - 4, { maxWidth: cardW - 8 });
-
-        if (r.page) {
-          pdf.text(`ص${r.page}`, x + cardW - 10, y + cardH - 4);
-        }
-        pos++;
-      }
-      idx++;
-    }
-    pdf.save('zad-library-cards.pdf');
+    const html = brandHeader('بطاقات موارد مكتبة زاد', 'امسح الرمز لفتح المورد') + qrCardsHtml(items.map(r => ({
+      title: r.title,
+      subtitle: r.category,
+      qrDataUrl: qrCache[r.slug],
+      url: shortLink(r.slug),
+      note: r.page ? `صفحة ${r.page}` : undefined,
+    })));
+    await downloadHtmlAsPdf(html, 'zad-library-cards.pdf');
   };
+
 
   if (loading) return (
     <section id="zad-library" className="py-12 bg-slate-50 scroll-mt-20">
@@ -202,8 +164,3 @@ export function ZadLibrarySection() {
   );
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
-  return result;
-}

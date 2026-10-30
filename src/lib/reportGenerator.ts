@@ -1,23 +1,13 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import type { AnalysisResult } from './analysis';
+import { brandHeader, esc, renderHtmlToPdfBlob, sectionTitle } from './pdfExport';
+import { audienceLabel, programLabel } from './labels';
 
-function swotColor(type: string): string {
-  switch (type) {
-    case 'strength': return '#059669';
-    case 'weakness': return '#dc2626';
-    case 'opportunity': return '#2563eb';
-    case 'threat': return '#d97706';
-    default: return '#64748b';
-  }
-}
-
-function swotLabel(type: string): string {
-  const map: Record<string, string> = {
-    strength: 'قوة', weakness: 'ضعف', opportunity: 'فرصة', threat: 'تهديد',
-  };
-  return map[type] || type;
-}
+const SWOT_META = {
+  strength: { label: 'نقاط القوة', short: 'قوة', color: '#059669', bg: '#ecfdf5' },
+  weakness: { label: 'نقاط الضعف', short: 'ضعف', color: '#dc2626', bg: '#fef2f2' },
+  opportunity: { label: 'الفرص', short: 'فرصة', color: '#2563eb', bg: '#eff6ff' },
+  threat: { label: 'التهديدات', short: 'تهديد', color: '#d97706', bg: '#fffbeb' },
+} as const;
 
 function priorityColor(p: string): string {
   if (p === 'مرتفعة') return '#dc2626';
@@ -26,300 +16,216 @@ function priorityColor(p: string): string {
 }
 
 function fmt(n: number, digits = 2): string {
-  return n.toFixed(digits);
+  return Number.isFinite(n) ? n.toFixed(digits) : '—';
 }
+
+const td = 'padding:7px 8px; border-bottom:1px solid #eef2f7;';
+const labelCell = `${td} color:#64748b; width:22%; white-space:nowrap;`;
 
 export async function generateAnalysisPdf(result: AnalysisResult): Promise<Blob> {
-  const container = document.createElement('div');
-  container.style.cssText = `
-    position: fixed; right: -9999px; top: 0; width: 794px; padding: 40px;
-    background: #ffffff; font-family: 'Cairo', 'Tajawal', sans-serif;
-    direction: rtl; color: #1e293b; font-size: 14px; line-height: 1.7;
-  `;
-  container.innerHTML = buildReportHtml(result);
-  document.body.appendChild(container);
-
-  try {
-    const canvas = await html2canvas(container, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff',
-      windowWidth: 794,
-    });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageW = 210, pageH = 297;
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    let heightLeft = imgH;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
-    heightLeft -= pageH;
-    while (heightLeft > 0) {
-      position -= pageH;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
-      heightLeft -= pageH;
-    }
-
-    return pdf.output('blob');
-  } finally {
-    document.body.removeChild(container);
-  }
+  return renderHtmlToPdfBlob(buildReportHtml(result), { footerLatin: 'Bawsala' });
 }
 
-function buildReportHtml(r: AnalysisResult): string {
-  const s = r.survey;
-  const dateStr = new Date().toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
-
-  return `
-    ${reportHeader(s.title, dateStr)}
-    ${execSummary(r)}
-    ${descriptionSection(s)}
-    ${evidenceSection(r)}
-    ${swotSection(r)}
-    ${recommendationsSection(r)}
-    ${topicClustersSection(r)}
-    ${methodologyAppendix(r)}
-    ${warningFooter(r)}
-  `;
-}
-
-function reportHeader(title: string, dateStr: string): string {
-  return `
-    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #1e40af; padding-bottom:16px; margin-bottom:28px;">
-      <div>
-        <div style="font-size:22px; font-weight:800; color:#10324a;">بوصلة</div>
-        <div style="font-size:13px; color:#0e7490; margin-top:4px;">منصة الموجّه الطلابي</div>
-        <div style="font-size:13px; color:#64748b; margin-top:4px;">تقرير تحليل استبيان</div>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-size:16px; font-weight:700; color:#334155;">${title}</div>
-        <div style="font-size:12px; color:#94a3b8; margin-top:4px;">${dateStr}</div>
-      </div>
-    </div>
-  `;
-}
-
-function sectionTitle(num: string, title: string): string {
-  return `<h2 style="font-size:16px; font-weight:700; color:#1e3a8a; border-right:4px solid #3b82f6; padding-right:12px; margin:24px 0 12px;">${num}. ${title}</h2>`;
+export function buildReportHtml(r: AnalysisResult): string {
+  return [
+    brandHeader(`تقرير تحليل: ${r.survey.title}`, 'تقرير تحليل استبيان'),
+    execSummary(r),
+    descriptionSection(r),
+    evidenceSection(r),
+    swotSection(r),
+    recommendationsSection(r),
+    topicClustersSection(r),
+    methodologyAppendix(r),
+    warningFooter(r),
+  ].join('');
 }
 
 function execSummary(r: AnalysisResult): string {
   const s = r.survey;
-  const strengths = r.swot.filter(e => e.swotType === 'strength');
-  const weaknesses = r.swot.filter(e => e.swotType === 'weakness');
-  const opportunities = r.swot.filter(e => e.swotType === 'opportunity');
-  const threats = r.swot.filter(e => e.swotType === 'threat');
+  const count = (t: keyof typeof SWOT_META) => r.swot.filter(e => e.swotType === t).length;
+  const kv = (k: string, v: string, color = '#0f172a') =>
+    `<td style="${labelCell}">${k}</td><td style="${td} font-weight:700; color:${color};">${v}</td>`;
 
   return `
-    ${sectionTitle('١', 'الملخص التنفيذي')}
-    <div style="background:#f8fafc; border-radius:12px; padding:20px; margin-bottom:12px;">
-      <table style="width:100%; font-size:13px; border-collapse:collapse;">
-        <tr>
-          <td style="padding:6px; width:30%; color:#64748b;">الاستبيان</td><td style="padding:6px; font-weight:600;">${s.title}</td>
-          <td style="padding:6px; width:30%; color:#64748b;">عدد الاستجابات</td><td style="padding:6px; font-weight:600;">${r.totalResponses}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px; color:#64748b;">الفئة المستهدفة</td><td style="padding:6px;">${s.audience}</td>
-          <td style="padding:6px; color:#64748b;">المتوسط الكلي</td><td style="padding:6px; font-weight:600;">${fmt(r.overallMean)}</td>
-        </tr>
-        <tr>
-          <td style="padding:6px; color:#64748b;">عدد الأبعاد</td><td style="padding:6px;">${r.dimensions.length}</td>
-          <td style="padding:6px; color:#64748b;">معامل كرونباخ (متوسط)</td>
-          <td style="padding:6px; font-weight:600; color:${r.cronbachAlpha >= 0.6 ? '#059669' : '#dc2626'};">${fmt(r.cronbachAlpha)}</td>
-        </tr>
+    ${sectionTitle('1', 'الملخص التنفيذي')}
+    <div data-pdf-block style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:6px 14px; margin-bottom:12px;">
+      <table style="font-size:12.5px;">
+        <tr>${kv('الاستبيان', esc(s.title))}${kv('عدد الاستجابات', String(r.totalResponses))}</tr>
+        <tr>${kv('الفئة المستهدفة', esc(audienceLabel(s.audience)))}${kv('المتوسط الكلي', `${fmt(r.overallMean)} من 5`)}</tr>
+        <tr>${kv('عدد الأبعاد', String(r.dimensions.length))}${kv('معامل كرونباخ ألفا', fmt(r.cronbachAlpha), r.cronbachAlpha >= 0.6 ? '#059669' : '#dc2626')}</tr>
       </table>
     </div>
-    <div style="display:flex; gap:8px; margin-bottom:12px;">
-      <div style="flex:1; background:#ecfdf5; border-radius:10px; padding:12px; text-align:center;">
-        <div style="font-size:24px; font-weight:800; color:#059669;">${strengths.length}</div><div style="font-size:11px; color:#059669;">قوة</div>
-      </div>
-      <div style="flex:1; background:#fef2f2; border-radius:10px; padding:12px; text-align:center;">
-        <div style="font-size:24px; font-weight:800; color:#dc2626;">${weaknesses.length}</div><div style="font-size:11px; color:#dc2626;">ضعف</div>
-      </div>
-      <div style="flex:1; background:#eff6ff; border-radius:10px; padding:12px; text-align:center;">
-        <div style="font-size:24px; font-weight:800; color:#2563eb;">${opportunities.length}</div><div style="font-size:11px; color:#2563eb;">فرصة</div>
-      </div>
-      <div style="flex:1; background:#fffbeb; border-radius:10px; padding:12px; text-align:center;">
-        <div style="font-size:24px; font-weight:800; color:#d97706;">${threats.length}</div><div style="font-size:11px; color:#d97706;">تهديد</div>
-      </div>
-    </div>
+    <table data-pdf-block style="border-collapse:separate; border-spacing:8px 0; margin:0 -8px 12px; width:calc(100% + 16px);">
+      <tr>
+        ${(Object.keys(SWOT_META) as (keyof typeof SWOT_META)[]).map(t => `
+          <td style="background:${SWOT_META[t].bg}; border-radius:10px; padding:10px; text-align:center; width:25%;">
+            <div style="font-size:24px; font-weight:800; color:${SWOT_META[t].color}; line-height:1.3;">${count(t)}</div>
+            <div style="font-size:12px; font-weight:700; color:${SWOT_META[t].color};">${SWOT_META[t].short}</div>
+          </td>`).join('')}
+      </tr>
+    </table>
     ${r.recommendations.length > 0 ? `
-      <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:14px; margin-bottom:12px;">
-        <div style="font-weight:700; color:#9a3412; margin-bottom:6px;">أبرز التوصيات</div>
-        ${r.recommendations.slice(0, 3).map(rec => `
-          <div style="font-size:12px; margin-bottom:4px; color:#7c2d12;">
-            <span style="font-weight:600;">[${rec.priority}]</span> ${rec.ifLowText} — ${rec.responsibility} (${rec.timeframe})
-          </div>
-        `).join('')}
+      <div data-pdf-block style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+        <div style="font-weight:800; color:#9a3412; margin-bottom:6px; font-size:13px;">أبرز التوصيات</div>
+        <div style="font-size:12px; color:#7c2d12; line-height:1.9;">
+          ${r.recommendations.slice(0, 3).map((rec, i) => `
+            <div>${i + 1}. <strong>${esc(rec.ifLowText)}</strong> — ${esc(rec.responsibility)} (${esc(rec.timeframe)}) <span style="color:${priorityColor(rec.priority)};">— أولوية ${esc(rec.priority)}</span></div>`).join('')}
+        </div>
       </div>` : ''}
   `;
 }
 
-function descriptionSection(s: { title: string; intro: string; audience: string; indicators: string[]; programs: string[]; sections: { items: unknown[] }[] }): string {
+function descriptionSection(r: AnalysisResult): string {
+  const s = r.survey;
+  const items = s.sections.reduce((a, sec) => a + sec.items.length, 0);
+  const programs = s.programs.length ? s.programs.map(p => esc(programLabel(p))).join('، ') : '—';
+  const indicators = s.indicators.length ? s.indicators.map(c => `<span class="ltr num">${esc(c)}</span>`).join('، ') : '—';
   return `
-    ${sectionTitle('٢', 'وصف الاستبيان')}
-    <div style="font-size:13px; line-height:1.8; margin-bottom:12px;">${s.intro}</div>
-    <table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:12px;">
-      <tr style="background:#f1f5f9;">
-        <td style="padding:8px; color:#64748b;">الفئة</td><td style="padding:8px;">${s.audience}</td>
-        <td style="padding:8px; color:#64748b;">المؤشرات المرتبطة</td><td style="padding:8px;" dir="ltr">${s.indicators.join('، ')}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px; color:#64748b;">البرامج</td><td style="padding:8px;" dir="ltr">${s.programs.join('، ')}</td>
-        <td style="padding:8px; color:#64748b;">عدد الفقرات</td><td style="padding:8px;">${s.sections.reduce((a: number, sec: { items: unknown[] }) => a + sec.items.length, 0)}</td>
-      </tr>
+    ${sectionTitle('2', 'وصف الاستبيان')}
+    <p data-pdf-block style="font-size:12.5px; line-height:1.9; margin:0 0 10px;">${esc(s.intro)}</p>
+    <table data-pdf-block style="font-size:12px; margin-bottom:12px; border:1px solid #e2e8f0;">
+      <tr style="background:#f8fafc;"><td style="${labelCell}">الفئة المستهدفة</td><td style="${td}">${esc(audienceLabel(s.audience))}</td><td style="${labelCell}">عدد الفقرات</td><td style="${td}">${items}</td></tr>
+      <tr><td style="${labelCell}">البرامج المرتبطة</td><td style="${td}" colspan="3">${programs}</td></tr>
+      <tr style="background:#f8fafc;"><td style="${labelCell}">مؤشرات الاعتماد</td><td style="${td}" colspan="3">${indicators}</td></tr>
     </table>
   `;
 }
 
 function evidenceSection(r: AnalysisResult): string {
+  const th = 'padding:8px 6px; font-weight:700; font-size:11.5px; text-align:center; white-space:nowrap;';
   return `
-    ${sectionTitle('٣', 'الاستدلال والإحصاءات')}
-    <table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:12px;">
+    ${sectionTitle('3', 'النتائج الإحصائية لكل بُعد')}
+    <table style="font-size:12px; margin-bottom:6px; border:1px solid #e2e8f0;">
       <thead>
-        <tr style="background:#1e3a8a; color:#fff;">
-          <th style="padding:8px; text-align:right;">البُعد</th>
-          <th style="padding:8px;">المتوسط</th>
-          <th style="padding:8px;">الانحراف</th>
-          <th style="padding:8px;">حد ثقة سفلي</th>
-          <th style="padding:8px;">حد ثقة علوي</th>
-          <th style="padding:8px;">نسبة سلبية</th>
-          <th style="padding:8px;">n</th>
-          <th style="padding:8px;">الثقة</th>
-          <th style="padding:8px;">المستوى</th>
+        <tr style="background:#10324a; color:#fff;">
+          <th style="${th} text-align:right;">البُعد</th>
+          <th style="${th}">المتوسط</th>
+          <th style="${th}">الانحراف المعياري</th>
+          <th style="${th}">فترة الثقة 95%</th>
+          <th style="${th}">نسبة الإجابات السلبية</th>
+          <th style="${th}">عدد المستجيبين</th>
+          <th style="${th}">الثقة</th>
+          <th style="${th}">المستوى</th>
         </tr>
       </thead>
       <tbody>
         ${r.dimensions.map((d, i) => `
           <tr style="background:${i % 2 ? '#f8fafc' : '#fff'};">
-            <td style="padding:7px; font-weight:600;">${d.sectionName}</td>
-            <td style="padding:7px; text-align:center; font-weight:700; color:${d.mean >= 4 ? '#059669' : d.mean < 3 ? '#dc2626' : '#64748b'};">${fmt(d.mean)}</td>
-            <td style="padding:7px; text-align:center;">${fmt(d.stdDev)}</td>
-            <td style="padding:7px; text-align:center;">${fmt(d.ciLower)}</td>
-            <td style="padding:7px; text-align:center;">${fmt(d.ciUpper)}</td>
-            <td style="padding:7px; text-align:center; color:${d.negativeRatio >= 0.3 ? '#dc2626' : '#64748b'};">${(d.negativeRatio * 100).toFixed(0)}%</td>
-            <td style="padding:7px; text-align:center;">${d.n}</td>
-            <td style="padding:7px; text-align:center;">${d.confidenceLevel}</td>
-            <td style="padding:7px; text-align:center;">${d.band}</td>
-          </tr>
-        `).join('')}
+            <td style="${td} font-weight:700;">${esc(d.sectionName)}</td>
+            <td style="${td} text-align:center; font-weight:800; color:${d.mean >= 4 ? '#059669' : d.mean < 3 ? '#dc2626' : '#334155'};">${fmt(d.mean)}</td>
+            <td style="${td} text-align:center;">${fmt(d.stdDev)}</td>
+            <td style="${td} text-align:center;"><span class="ltr num">${fmt(d.ciLower)} – ${fmt(d.ciUpper)}</span></td>
+            <td style="${td} text-align:center; color:${d.negativeRatio >= 0.3 ? '#dc2626' : '#334155'};">${(d.negativeRatio * 100).toFixed(0)}%</td>
+            <td style="${td} text-align:center;">${d.n}</td>
+            <td style="${td} text-align:center;">${esc(d.confidenceLevel)}</td>
+            <td style="${td} text-align:center;">${esc(d.band)}</td>
+          </tr>`).join('')}
       </tbody>
     </table>
+    <p data-pdf-block style="font-size:10.5px; color:#94a3b8; margin:0 0 12px;">المتوسط من 5. الإجابة السلبية = درجة 2 أو أقل بعد عكس العبارات السالبة.</p>
   `;
 }
 
 function swotSection(r: AnalysisResult): string {
-  const types = ['strength', 'weakness', 'opportunity', 'threat'] as const;
+  const types = Object.keys(SWOT_META) as (keyof typeof SWOT_META)[];
+  const box = (t: keyof typeof SWOT_META) => {
+    const meta = SWOT_META[t];
+    const entries = r.swot.filter(e => e.swotType === t);
+    return `
+      <td style="width:50%; vertical-align:top; padding:0;">
+        <div style="border:1.5px solid ${meta.color}33; background:${meta.bg}; border-radius:12px; padding:12px 14px; min-height:90px;">
+          <div style="font-weight:800; color:${meta.color}; font-size:13px; border-bottom:1px solid ${meta.color}33; padding-bottom:6px; margin-bottom:8px;">${meta.label} (${entries.length})</div>
+          ${entries.length === 0
+            ? '<div style="font-size:12px; color:#94a3b8;">لا يوجد</div>'
+            : entries.map(e => `
+              <div style="margin-bottom:8px;">
+                <div style="font-size:12px; font-weight:700;">${esc(e.dimension)}</div>
+                <div style="font-size:11.5px; color:#475569; line-height:1.7;">المتوسط ${fmt(e.mean)} من 5 — عدد المستجيبين ${e.n}</div>
+                <div style="font-size:10.5px; color:#94a3b8;">الثقة: ${esc(e.confidenceLevel)} · ${esc(e.factType)}</div>
+              </div>`).join('')}
+        </div>
+      </td>`;
+  };
   return `
-    ${sectionTitle('٤', 'تحليل SWOT')}
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-      ${types.map(type => {
-        const entries = r.swot.filter(e => e.swotType === type);
-        const color = swotColor(type);
-        return `
-          <div style="flex:1; min-width:180px; border:2px solid ${color}20; border-radius:12px; padding:14px; background:${color}08;">
-            <div style="font-weight:800; color:${color}; font-size:14px; margin-bottom:8px; border-bottom:1px solid ${color}30; padding-bottom:6px;">
-              ${swotLabel(type)} (${entries.length})
-            </div>
-            ${entries.length === 0
-              ? '<div style="font-size:12px; color:#94a3b8;">لا يوجد</div>'
-              : entries.map(e => `
-                <div style="margin-bottom:8px;">
-                  <div style="font-size:12px; font-weight:600;">${e.dimension}</div>
-                  <div style="font-size:11px; color:#64748b; line-height:1.5;">${e.evidence}</div>
-                  <div style="font-size:10px; color:#94a3b8; margin-top:2px;">الثقة: ${e.confidenceLevel} · ${e.factType}</div>
-                </div>
-              `).join('')}
-          </div>
-        `;
-      }).join('')}
-    </div>
+    ${sectionTitle('4', 'تحليل SWOT')}
+    <table style="border-collapse:separate; border-spacing:8px; margin:0 -8px 8px; width:calc(100% + 16px);">
+      <tr data-pdf-block>${box(types[0])}${box(types[1])}</tr>
+      <tr data-pdf-block>${box(types[2])}${box(types[3])}</tr>
+    </table>
     ${r.challenges.length > 0 ? `
-      <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:14px; margin-bottom:12px;">
-        <div style="font-weight:700; color:#92400e; margin-bottom:8px;">تحديات (Challenge)</div>
-        ${r.challenges.map(c => `
-          <div style="font-size:12px; margin-bottom:6px;">
-            <span style="font-weight:600;">${c.dimension}</span>: ${c.reason}
-          </div>
-        `).join('')}
-      </div>
-    ` : ''}
+      <div data-pdf-block style="background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+        <div style="font-weight:800; color:#92400e; margin-bottom:6px; font-size:13px;">التحديات</div>
+        ${r.challenges.map(c => `<div style="font-size:12px; margin-bottom:4px;"><strong>${esc(c.dimension)}</strong>: ${esc(c.reason)}</div>`).join('')}
+      </div>` : ''}
   `;
 }
 
 function recommendationsSection(r: AnalysisResult): string {
   if (r.recommendations.length === 0) {
-    return `${sectionTitle('٥', 'التوصيات')}<p style="font-size:13px; color:#94a3b8;">لا توجد توصيات محددة بناءً على النتائج الحالية.</p>`;
+    return `${sectionTitle('5', 'التوصيات')}<p data-pdf-block style="font-size:12.5px; color:#94a3b8;">لا توجد توصيات محددة بناءً على النتائج الحالية.</p>`;
   }
   const sorted = [...r.recommendations].sort((a, b) => b.priorityScore - a.priorityScore);
   return `
-    ${sectionTitle('٥', 'التوصيات والإجراءات المقترحة')}
-    ${sorted.map((rec, i) => `
-      <div style="border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:10px; border-right:4px solid ${priorityColor(rec.priority)};">
-        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
-          <div style="font-weight:700; font-size:13px;">${i + 1}. ${rec.ifLowText}</div>
-          <span style="font-size:11px; font-weight:700; padding:2px 10px; border-radius:99px; background:${priorityColor(rec.priority)}15; color:${priorityColor(rec.priority)};">${rec.priority}</span>
-        </div>
-        <table style="width:100%; font-size:12px;">
-          <tr>
-            <td style="padding:4px; color:#64748b; width:20%;">البُعد</td><td style="padding:4px;">${rec.dimension}</td>
-            <td style="padding:4px; color:#64748b; width:20%;">المسؤول المقترح</td><td style="padding:4px;">${rec.responsibility}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px; color:#64748b;">البرنامج</td><td style="padding:4px;" dir="ltr">${rec.programName || '—'}</td>
-            <td style="padding:4px; color:#64748b;">الموعد</td><td style="padding:4px;">${rec.timeframe}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px; color:#64748b;">المورد</td>
-            <td style="padding:4px;" colspan="3">${rec.resourceTitle ? `${rec.resourceTitle}${rec.resourceUrl ? ` (<span dir="ltr" style="color:#2563eb;">${rec.resourceUrl}</span>)` : ''}` : '—'}</td>
-          </tr>
-          <tr>
-            <td style="padding:4px; color:#64748b;">مؤشر النجاح</td><td style="padding:4px;" colspan="3">${rec.successMetric}</td>
-          </tr>
+    ${sectionTitle('5', 'التوصيات والإجراءات المقترحة')}
+    ${sorted.map((rec, i) => {
+      const color = priorityColor(rec.priority);
+      const resource = rec.resourceTitle
+        ? `${esc(rec.resourceTitle)}${rec.resourceUrl ? `<div style="font-size:10px; color:#2563eb; direction:ltr; text-align:left; word-break:break-all; line-height:1.5; margin-top:2px;">${esc(rec.resourceUrl)}</div>` : ''}`
+        : '—';
+      return `
+      <div data-pdf-block style="border:1px solid #e2e8f0; border-right:4px solid ${color}; border-radius:10px; padding:12px 14px; margin-bottom:10px;">
+        <table style="margin-bottom:6px;"><tr>
+          <td style="font-weight:800; font-size:13px; color:#0f172a;">${i + 1}. ${esc(rec.ifLowText)}</td>
+          <td style="width:80px; text-align:left;"><span style="display:inline-block; font-size:11px; font-weight:700; padding:2px 10px; border-radius:99px; background:${color}1a; color:${color};">${esc(rec.priority)}</span></td>
+        </tr></table>
+        <table style="font-size:12px;">
+          <tr><td style="${labelCell}">البُعد</td><td style="${td}">${esc(rec.dimension)}</td><td style="${labelCell}">المسؤول المقترح</td><td style="${td}">${esc(rec.responsibility)}</td></tr>
+          <tr><td style="${labelCell}">البرنامج</td><td style="${td}">${esc(rec.programName ? programLabel(rec.programName) : '—')}</td><td style="${labelCell}">الموعد</td><td style="${td}">${esc(rec.timeframe)}</td></tr>
+          <tr><td style="${labelCell}">المورد</td><td style="${td}" colspan="3">${resource}</td></tr>
+          <tr><td style="${labelCell} border-bottom:none;">مؤشر النجاح</td><td style="${td} border-bottom:none;" colspan="3">${esc(rec.successMetric)}</td></tr>
         </table>
-      </div>
-    `).join('')}
+      </div>`;
+    }).join('')}
   `;
 }
 
 function topicClustersSection(r: AnalysisResult): string {
   if (r.topicClusters.length === 0) return '';
   return `
-    ${sectionTitle('٦', 'موضوعات النصوص الحرة')}
-    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+    ${sectionTitle('6', 'موضوعات النصوص الحرة')}
+    <div data-pdf-block style="margin-bottom:12px; line-height:2.6;">
       ${r.topicClusters.map(c => `
-        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:99px; padding:6px 14px; font-size:12px;">
-          <span style="font-weight:700; color:#1e40af;">${c.topic}</span>
-          <span style="color:#64748b; margin-right:6px;">(${c.count})</span>
-        </div>
-      `).join('')}
+        <span style="display:inline-block; background:#eff6ff; border:1px solid #bfdbfe; border-radius:99px; padding:2px 14px; font-size:12px; margin-left:6px;">
+          <strong style="color:#1e40af;">${esc(c.topic)}</strong> <span style="color:#64748b;">(${c.count})</span>
+        </span>`).join('')}
     </div>
   `;
 }
 
 function methodologyAppendix(r: AnalysisResult): string {
+  const p = (title: string, body: string) =>
+    `<p data-pdf-block style="margin:0 0 8px;"><strong style="color:#334155;">${title}:</strong> ${body}</p>`;
   return `
-    ${sectionTitle('٧', 'الملحق المنهجي')}
-    <div style="font-size:12px; line-height:1.8; color:#475569;">
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">الاختبارات الإحصائية:</span> تم حساب المتوسطات والانحراف المعياري وفترات الثقة 95% (Z=1.96) لكل بُعد. نسبة الإجابات السلبية = نسبة الإجابات بدرجة ≤ 2 من 5.</p>
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">معامل كرونباخ:</span> متوسط α = ${fmt(r.cronbachAlpha)}. ${r.cronbachAlpha >= 0.6 ? 'الاتساق مقبول.' : 'الاتساق منخفض — ينبغي تحكيم الفقرات.'}</p>
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">قواعد التصنيف:</span> القوة: متوسط ≥ 4.0 وحد ثقة سفلي ≥ 3.5. الضعف: متوسط < 3.0 أو نسبة سلبية ≥ 30%. الفرصة/التهديد: أبعاد خارجية بعتبة 3.8/3.0. التحدّي: أهمية مرتفعة + أداء منخفض.</p>
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">الأولوية:</span> الشدة × نسبة المتأثرين × ارتباط بمؤشر اعتماد منخفض التغطية.</p>
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">الموضوعات:</span> تجميع محلي للكلمات المتكررة في النصوص الحرة بعد إزالة كلمات الوقف، دون استخدام نموذج لغوي خارجي.</p>
-      <p style="margin-bottom:8px;"><span style="font-weight:700;">حجم العينة:</span> n=${r.totalResponses}. ${r.sufficientData ? 'كافٍ للتحليل.' : 'أقل من 5 — نتائج استرشادية فقط.'}</p>
+    ${sectionTitle(r.topicClusters.length ? '7' : '6', 'الملحق المنهجي')}
+    <div style="font-size:12px; line-height:1.9; color:#475569;">
+      ${p('الاختبارات الإحصائية', 'حُسب متوسط كل مستجيب في كل بُعد، ثم المتوسط والانحراف المعياري وفترة الثقة 95% (Z = 1.96) على مستوى المستجيبين. نسبة الإجابات السلبية = نسبة الإجابات بدرجة 2 أو أقل من 5.')}
+      ${p('معامل كرونباخ ألفا', `المتوسط = ${fmt(r.cronbachAlpha)}. ${r.cronbachAlpha >= 0.6 ? 'الاتساق الداخلي مقبول.' : 'الاتساق الداخلي منخفض — ينبغي مراجعة الفقرات.'}`)}
+      ${p('قواعد التصنيف', 'القوة: متوسط 4.0 فأكثر وحد ثقة أدنى 3.5 فأكثر. الضعف: متوسط أقل من 3.0 أو نسبة سلبية 30% فأكثر. الفرص والتهديدات: أبعاد خارجية بعتبة 3.8 و3.0. التحدي: أهمية مرتفعة مع أداء منخفض.')}
+      ${p('الأولوية', 'الشدة × نسبة المتأثرين × الارتباط بمؤشر اعتماد منخفض التغطية.')}
+      ${r.topicClusters.length ? p('الموضوعات', 'تجميع محلي للكلمات المتكررة في النصوص الحرة بعد إزالة كلمات الربط، دون إرسال النصوص لأي جهة خارجية.') : ''}
+      ${p('حجم العينة', `${r.totalResponses} مستجيبًا. ${r.sufficientData ? 'كافٍ للتحليل.' : 'أقل من 5 — النتائج استرشادية فقط.'}`)}
     </div>
   `;
 }
 
 function warningFooter(r: AnalysisResult): string {
   return `
-    <div style="margin-top:24px; background:#fef2f2; border:2px solid #fecaca; border-radius:12px; padding:16px; text-align:center;">
-      <div style="font-size:13px; font-weight:700; color:#991b1b; margin-bottom:6px;">تنبيه</div>
-      <div style="font-size:12px; color:#7f1d1d; line-height:1.8;">${r.warning}</div>
+    <div data-pdf-block style="margin-top:18px; background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px; padding:12px 16px; text-align:center;">
+      <div style="font-size:13px; font-weight:800; color:#991b1b; margin-bottom:4px;">تنبيه</div>
+      <div style="font-size:12px; color:#7f1d1d; line-height:1.8;">${esc(r.warning)}</div>
     </div>
-    <div style="text-align:center; font-size:11px; color:#cbd5e1; margin-top:20px;">
-      تم إنشاء هذا التقرير تلقائيًا بواسطة بوصلة — منصة الموجّه الطلابي — ${new Date().toLocaleString('ar-SA')}
+    <div data-pdf-block style="text-align:center; font-size:10.5px; color:#94a3b8; margin-top:14px;">
+      أُنشئ هذا التقرير تلقائيًا بواسطة بوصلة — منصة الموجّه الطلابي
     </div>
   `;
 }

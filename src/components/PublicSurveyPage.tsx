@@ -114,7 +114,7 @@ export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () 
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-3">
           <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"><ChevronRight className="w-3.5 h-3.5" /> العودة للموقع</button>
-          <Logo variant="icon" size={32} />
+          <Logo variant="full" size={40} />
         </div>
 
         {/* Progress bar */}
