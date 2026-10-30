@@ -35,6 +35,8 @@ import { CoverageMapSection } from '@/components/CoverageMapSection';
 import { DataExportSection } from '@/components/DataExportSection';
 import { Logo } from '@/components/Logo';
 import { PublicSurveyPage } from '@/components/PublicSurveyPage';
+import { AuthGate, SignOutButton } from '@/components/AuthGate';
+import { MigrateDataPage } from '@/components/MigrateDataPage';
 import { Plus, QrCode, FileQuestion } from 'lucide-react';
 import {
   fetchEvidenceCount, fetchEvidence,
@@ -159,6 +161,7 @@ function Header({ activeSection, setActiveSection, searchQuery, setSearchQuery }
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
                 ص ب
               </div>
+              <SignOutButton />
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg hover:bg-slate-100">
                 <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -835,7 +838,7 @@ function StudentVoice() {
 }
 
 // ============ DIGITAL CLINIC ============
-function DigitalClinic() {
+function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) {
   const [consultationType, setConsultationType] = useState('');
   const [privacyLevel, setPrivacyLevel] = useState('');
   const [message, setMessage] = useState('');
@@ -869,9 +872,10 @@ function DigitalClinic() {
   const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
   const slots = ['8:00 ص', '9:00 ص', '10:00 ص', '11:00 ص', '12:00 م', '1:00 م'];
 
-  const shareUrl = `${window.location.origin}${window.location.pathname}#clinic`;
+  const shareUrl = `${window.location.origin}/?clinic=1`;
 
   const loadStats = useCallback(async () => {
+    if (publicMode) return;
     try {
       const [cStats, crStats] = await Promise.all([
         fetchConsultationStats(),
@@ -880,7 +884,7 @@ function DigitalClinic() {
       setConsultStats(cStats);
       setCareerStats(crStats);
     } catch {}
-  }, []);
+  }, [publicMode]);
 
   useEffect(() => {
     loadStats();
@@ -990,13 +994,13 @@ function DigitalClinic() {
                   <p className="text-xs text-slate-500">جميع البيانات سرية ولن يتم الاطلاع عليها إلا من قبل الموجه الطلابي</p>
                 </div>
               </div>
-              <button
+              {!publicMode && <button
                 onClick={() => setShowShareLink(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex-shrink-0"
               >
                 <Link2 className="w-3.5 h-3.5" />
                 رابط المشاركة
-              </button>
+              </button>}
             </div>
 
             {submitError && (
@@ -1641,6 +1645,7 @@ type PublicRoute =
   | { kind: 'survey'; slug: string }
   | { kind: 'spec-survey'; id: string }
   | { kind: 'zad'; slug: string }
+  | { kind: 'clinic' }
   | null;
 
 /** قراءة الرابط عند فتح المنصة: روابط الاستبيانات والموارد تفتح صفحة مستقلة بدل الصفحة الرئيسية */
@@ -1652,12 +1657,14 @@ function readPublicRoute(): PublicRoute {
   if (survey) return { kind: 'spec-survey', id: survey };
   const s = params.get('s');
   if (s) return { kind: 'zad', slug: s };
+  if (params.has('clinic') || window.location.hash === '#clinic') return { kind: 'clinic' };
   return null;
 }
 
 function clearPublicRoute() {
   const url = new URL(window.location.href);
-  ['r', 's', 'survey'].forEach(key => url.searchParams.delete(key));
+  ['r', 's', 'survey', 'clinic'].forEach(key => url.searchParams.delete(key));
+  if (url.hash === '#clinic') url.hash = '';
   window.history.replaceState({}, '', url);
 }
 
@@ -1717,8 +1724,20 @@ function App() {
   if (route?.kind === 'survey') return <PublicSurveyPage slug={route.slug} onClose={closeRoute} />;
   if (route?.kind === 'spec-survey') return <StandaloneSpecSurvey surveyId={route.id} onClose={closeRoute} />;
   if (route?.kind === 'zad') return <ZadResourceRedirect slug={route.slug} onFallback={zadFallback} onClose={closeRoute} />;
+  if (new URLSearchParams(window.location.search).has('migrate')) {
+    return <AuthGate><MigrateDataPage onClose={() => { window.location.href = '/'; }} /></AuthGate>;
+  }
+  if (route?.kind === 'clinic') {
+    return (
+      <div className="min-h-screen bg-slate-50" dir="rtl">
+        <div className="max-w-7xl mx-auto px-4 pt-6 flex justify-center"><Logo variant="full" size={48} /></div>
+        <DigitalClinic publicMode />
+      </div>
+    );
+  }
 
   return (
+    <AuthGate>
     <div className="min-h-screen bg-slate-50" dir="rtl">
       <Header
         activeSection={activeSection}
@@ -1750,6 +1769,7 @@ function App() {
       </main>
       <Footer />
     </div>
+    </AuthGate>
   );
 }
 
