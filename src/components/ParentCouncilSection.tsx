@@ -1,3 +1,5 @@
+import { AutoIndicators } from '@/components/AutoIndicators';
+import { indicatorsForContext } from '@/lib/autoIndicators';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, X, Calendar, CheckCircle2, Clock3, Trash2,
@@ -64,7 +66,7 @@ export function ParentCouncilSection() {
         recommendations: form.recommendations || undefined,
         status: form.status,
         status_label: statusLabels[form.status],
-        indicator_codes: selectedCodes,
+        indicator_codes: indicatorsForContext('parentCouncil'),
       });
       setForm({ meeting_date_hijri: '', meeting_date_gregorian: '', topic: '', attendees_count: 0, recommendations: '', status: 'scheduled' });
       setSelectedCodes([]);
@@ -209,38 +211,7 @@ export function ParentCouncilSection() {
                   <option value="cancelled">ملغى</option>
                 </select>
               </div>
-              <div className="md:col-span-2">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-2">
-                  <Target className="w-4 h-4 text-slate-400" />
-                  مؤشرات الاعتماد المرتبطة
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                  {accreditationDomains.map(domain => {
-                    const colors = indicatorColorMap[domain.color];
-                    return (
-                      <div key={domain.id}>
-                        <p className={`text-xs font-bold ${colors.text} px-1`}>{domain.title}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {domain.indicators.map(ind => {
-                            const active = selectedCodes.includes(ind.code);
-                            return (
-                              <button
-                                key={ind.code}
-                                onClick={() => toggleCode(ind.code)}
-                                className={`text-xs px-2 py-1 rounded-lg border transition-all ${
-                                  active ? `${colors.bg} ${colors.text} ${colors.border} font-medium` : 'bg-white text-slate-500 border-slate-200'
-                                }`}
-                              >
-                                {ind.code}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <AutoIndicators codes={indicatorsForContext('parentCouncil')} />
             </div>
             <div className="flex gap-2 mt-4">
               <button onClick={handleSubmit} className="flex-1 py-2.5 text-sm font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors">

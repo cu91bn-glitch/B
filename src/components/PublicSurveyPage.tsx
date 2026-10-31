@@ -19,7 +19,7 @@ async function getFingerprint(): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () => void }) {
+export function PublicSurveyPage({ slug }: { slug: string; onClose?: () => void }) {
   const [survey, setSurvey] = useState<SurveyDefinition | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -70,7 +70,6 @@ export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () 
       <div className="max-w-md text-center">
         <AlertCircle className="w-12 h-12 mx-auto mb-3 text-rose-400" />
         <p className="text-slate-700">{error}</p>
-        <button onClick={onClose} className="mt-4 text-sm text-indigo-700 hover:underline">العودة</button>
       </div>
     </div>
   );
@@ -81,7 +80,7 @@ export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () 
         <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-emerald-500" />
         <h2 className="text-lg font-bold text-slate-800 font-cairo">تم تسجيل إجابتك</h2>
         <p className="text-sm text-slate-600 mt-2 leading-7">شكرًا لمشاركتك. إجابتك مجهولة الهوية وقد سُجّلت بنجاح.</p>
-        <button onClick={() => { localStorage.removeItem(draftKey); onClose(); }} className="mt-5 px-4 py-2 text-sm text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">تم</button>
+        <p className="mt-5 text-xs text-slate-500">يمكنك إغلاق هذه الصفحة الآن.</p>
       </div>
     </div>
   );
@@ -101,7 +100,7 @@ export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () 
       setSubmitting(true);
       const fp = survey.settings.one_response_per_device ? await getFingerprint() : undefined;
       await submitSurveyResponse({ survey_id: survey.id, demographics, answers, text_answers: textAnswers, response_fingerprint: fp });
-      setSubmitted(true);
+      setSubmitted(true); localStorage.removeItem(draftKey);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'تعذر حفظ الإجابة');
     } finally {
@@ -112,9 +111,8 @@ export function PublicSurveyPage({ slug, onClose }: { slug: string; onClose: () 
   return (
     <div className="min-h-screen bg-slate-50 py-6 px-4" dir="rtl">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"><ChevronRight className="w-3.5 h-3.5" /> العودة للموقع</button>
-          <Logo variant="full" size={40} />
+        <div className="flex justify-center mb-4">
+          <Logo variant="full" size={52} withFounder />
         </div>
 
         {/* Progress bar */}

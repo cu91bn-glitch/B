@@ -2,12 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face { font-family: 'Tajawal'; font-weight: 400; font-display: swap; src: url('/fonts/Tajawal-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Tajawal'; font-weight: 500; font-display: swap; src: url('/fonts/Tajawal-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Tajawal'; font-weight: 600 700; font-display: swap; src: url('/fonts/Tajawal-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Tajawal'; font-weight: 800 900; font-display: swap; src: url('/fonts/Tajawal-ExtraBold.ttf') format('truetype'); }
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
-    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+    font-family: 'Tajawal', system-ui, sans-serif;
+    font-weight: 500;
+    color: #0f2a3d;
+    background: #f3f8fb;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -19,7 +27,8 @@
 
 @layer utilities {
   .font-cairo {
-    font-family: 'Cairo', sans-serif;
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 800;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -82,3 +91,10 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #047857;
 }
+
+/* الأقسام داخل صفحات اللوحة */
+.page-body > section { padding-top: 1.5rem; padding-bottom: 1rem; background: transparent; }
+.page-body > section > div[class*="max-w-"] { max-width: none; padding-left: 1rem; padding-right: 1rem; }
+@media (min-width: 640px) { .page-body > section > div[class*="max-w-"] { padding-left: 1.5rem; padding-right: 1.5rem; } }
+@media (min-width: 1024px) { .page-body > section > div[class*="max-w-"] { padding-left: 2.5rem; padding-right: 2.5rem; } }
+.page-body section h2.text-xl { font-size: 1.05rem; color: #10324a; }

@@ -26,7 +26,7 @@ export function SurveyAnalysisSection() {
   const [error, setError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfDone, setPdfDone] = useState(false);
-  const [useDemo, setUseDemo] = useState(false);
+  const useDemo = false;
   const [evidenceSaved, setEvidenceSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -122,11 +122,6 @@ export function SurveyAnalysisSection() {
                 <option value="">— اختر —</option>
                 {surveys.map(s => <option key={s.id} value={s.id}>{s.title} ({s.status === 'draft' ? 'مسودة' : s.status === 'published' ? 'منشور' : s.status})</option>)}
               </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-600 pb-2.5">
-              <input type="checkbox" checked={useDemo} onChange={e => setUseDemo(e.target.checked)} className="rounded border-slate-300" />
-              <FlaskConical className="w-4 h-4 text-amber-500" />
-              بيانات تجريبية (20 استجابة)
             </label>
             <button onClick={runAnalysis} disabled={!selected || analyzing} className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors">
               {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />} تحليل

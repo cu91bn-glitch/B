@@ -1,3 +1,4 @@
+import { indicatorsForContext } from '@/lib/autoIndicators';
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
   Activity, AlertTriangle, Award, BarChart3, BookOpen, CheckCircle2,
@@ -6,6 +7,7 @@ import {
 } from 'lucide-react';
 import {
   createAttendance, createDiscipline, createTalent, deleteDiscipline, deleteTalent,
+  deleteEarlyAlert, deleteAllEarlyAlerts, deleteAttendance,
   fetchAttendance, fetchDiscipline, fetchEarlyAlerts, fetchTalents, updateDiscipline,
   updateTalent, type AttendanceRecord, type DisciplineRecord, type EarlyAlertRecord,
   type TalentRecord,
@@ -75,10 +77,23 @@ export function Phase3MonitoringSection() {
     score: alert.score, trigger_summary: alert.summary, recommended_action: 'التواصل مع الطالب والأسرة ووضع خطة متابعة', status: 'new', status_label: 'جديد', source: 'computed' as const,
   }))];
 
+  const removeAlert = async (id: string) => {
+    if (!confirm('حذف هذا الإنذار؟')) return;
+    try { await deleteEarlyAlert(id); setStoredAlerts(prev => prev.filter(a => a.id !== id)); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الحذف'); }
+  };
+  const removeAllAlerts = async () => {
+    if (!confirm(`حذف كل الإنذارات المحفوظة (${storedAlerts.length})؟`)) return;
+    try { await deleteAllEarlyAlerts(); setStoredAlerts([]); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الحذف'); }
+  };
+  const removeAttendance = async (id: string) => {
+    if (!confirm('حذف سجل الحضور؟')) return;
+    try { await deleteAttendance(id); setAttendance(prev => prev.filter(a => a.id !== id)); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الحذف'); }
+  };
+
   const submitAttendance = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      await createAttendance({ ...attendanceForm, status_label: attendanceLabels[attendanceForm.status], attendance_date_gregorian: null, indicator_codes: [] });
+      await createAttendance({ ...attendanceForm, status_label: attendanceLabels[attendanceForm.status], attendance_date_gregorian: null, indicator_codes: indicatorsForContext('attendance') });
       setAttendanceForm({ student_code: '', student_grade: '', attendance_date_hijri: '', status: 'present', minutes_late: 0, notes: '' }); setShowForm(false); load();
     } catch (err) { setError(err instanceof Error ? err.message : 'فشل حفظ الحضور'); }
   };
@@ -86,7 +101,7 @@ export function Phase3MonitoringSection() {
   const submitDiscipline = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      await createDiscipline({ ...disciplineForm, incident_type_label: disciplineLabels[disciplineForm.incident_type], severity_label: severityLabels[disciplineForm.severity], status: 'open', status_label: 'مفتوحة', incident_date_gregorian: null, indicator_codes: [] });
+      await createDiscipline({ ...disciplineForm, incident_type_label: disciplineLabels[disciplineForm.incident_type], severity_label: severityLabels[disciplineForm.severity], status: 'open', status_label: 'مفتوحة', incident_date_gregorian: null, indicator_codes: indicatorsForContext('discipline', disciplineForm.incident_type) });
       setDisciplineForm({ student_code: '', student_grade: '', incident_date_hijri: '', incident_type: 'behavior', severity: 'low', action_taken: '', notes: '' }); setShowForm(false); load();
     } catch (err) { setError(err instanceof Error ? err.message : 'فشل حفظ الملاحظة'); }
   };
@@ -94,7 +109,7 @@ export function Phase3MonitoringSection() {
   const submitTalent = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      await createTalent({ ...talentForm, talent_type_label: talentLabels[talentForm.talent_type], status: 'identified', status_label: 'مكتشفة', indicator_codes: [] });
+      await createTalent({ ...talentForm, talent_type_label: talentLabels[talentForm.talent_type], status: 'identified', status_label: 'مكتشفة', indicator_codes: indicatorsForContext('talent') });
       setTalentForm({ student_code: '', student_grade: '', talent_type: 'academic', title: '', evidence: '', development_plan: '' }); setShowForm(false); load();
     } catch (err) { setError(err instanceof Error ? err.message : 'فشل حفظ الموهبة'); }
   };
@@ -137,7 +152,7 @@ export function Phase3MonitoringSection() {
 
         {showForm && tab === 'talents' && <form onSubmit={submitTalent} className="mb-6 p-5 rounded-2xl border border-amber-200 bg-amber-50/40 grid grid-cols-1 md:grid-cols-2 gap-4"><Field label="رمز الطالب"><input required value={talentForm.student_code} onChange={e => setTalentForm({ ...talentForm, student_code: e.target.value })} className={inputClass} /></Field><Field label="الصف"><input required value={talentForm.student_grade} onChange={e => setTalentForm({ ...talentForm, student_grade: e.target.value })} className={inputClass} /></Field><Field label="مجال الموهبة"><select value={talentForm.talent_type} onChange={e => setTalentForm({ ...talentForm, talent_type: e.target.value as keyof typeof talentLabels })} className={inputClass}>{Object.entries(talentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field><Field label="اسم الموهبة"><input required value={talentForm.title} onChange={e => setTalentForm({ ...talentForm, title: e.target.value })} className={inputClass} /></Field><Field label="الشاهد أو الإنجاز"><input value={talentForm.evidence} onChange={e => setTalentForm({ ...talentForm, evidence: e.target.value })} className={inputClass} /></Field><Field label="خطة التطوير"><input value={talentForm.development_plan} onChange={e => setTalentForm({ ...talentForm, development_plan: e.target.value })} className={inputClass} /></Field><button className="md:col-span-2 py-2.5 rounded-lg bg-amber-600 text-white font-bold">حفظ الموهبة</button></form>}
 
-        {loading ? <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 text-slate-400 animate-spin" /></div> : tab === 'alerts' ? <div className="space-y-3">{alerts.length === 0 ? <EmptyState icon={ShieldAlert} text="لا توجد تنبيهات نشطة حالياً" /> : alerts.map(alert => <div key={alert.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col md:flex-row md:items-center gap-4"><div className={`w-11 h-11 rounded-xl flex items-center justify-center ${alert.severity === 'critical' ? 'bg-rose-100 text-rose-600' : alert.severity === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-600'}`}><AlertTriangle className="w-5 h-5" /></div><div className="flex-1"><div className="flex flex-wrap items-center gap-2 mb-1"><strong className="text-slate-800">{alert.student_code}</strong><span className="text-xs text-slate-400">{alert.student_grade}</span><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusClass(alert.severity)}`}>{alert.severity_label}</span></div><p className="text-sm text-slate-600">{alert.trigger_summary}</p><p className="text-xs text-slate-400 mt-1">الإجراء المقترح: {alert.recommended_action}</p></div><div className="text-center"><p className="text-xl font-bold text-slate-800">{alert.score}</p><p className="text-xs text-slate-400">درجة الخطر</p></div></div>)}</div> : tab === 'attendance' ? <AttendanceList records={attendance} /> : tab === 'discipline' ? <DisciplineList records={discipline} onStatusChange={updateDisciplineStatus} onDelete={deleteDiscipline} /> : <TalentList records={talents} onStatusChange={updateTalentStatus} onDelete={deleteTalent} />}
+        {loading ? <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 text-slate-400 animate-spin" /></div> : tab === 'alerts' ? <div className="space-y-3">{alerts.length === 0 ? <EmptyState icon={ShieldAlert} text="لا توجد تنبيهات نشطة حالياً" /> : alerts.map(alert => <div key={alert.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col md:flex-row md:items-center gap-4"><div className={`w-11 h-11 rounded-xl flex items-center justify-center ${alert.severity === 'critical' ? 'bg-rose-100 text-rose-600' : alert.severity === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-600'}`}><AlertTriangle className="w-5 h-5" /></div><div className="flex-1"><div className="flex flex-wrap items-center gap-2 mb-1"><strong className="text-slate-800">{alert.student_code}</strong><span className="text-xs text-slate-400">{alert.student_grade}</span><span className={`text-xs px-2 py-1 rounded-full font-medium ${statusClass(alert.severity)}`}>{alert.severity_label}</span></div><p className="text-sm text-slate-600">{alert.trigger_summary}</p><p className="text-xs text-slate-400 mt-1">الإجراء المقترح: {alert.recommended_action}</p></div><div className="text-center"><p className="text-xl font-bold text-slate-800">{alert.score}</p><p className="text-xs text-slate-400">درجة الخطر</p></div>{alert.source === 'stored' && <button onClick={() => removeAlert(alert.id)} className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="حذف"><Trash2 className="w-4 h-4" /></button>}</div>)}{storedAlerts.length > 1 && <button onClick={removeAllAlerts} className="text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2"><Trash2 className="inline w-3.5 h-3.5 ml-1" />حذف كل الإنذارات المحفوظة ({storedAlerts.length})</button>}</div> : tab === 'attendance' ? <AttendanceList records={attendance} onDelete={removeAttendance} /> : tab === 'discipline' ? <DisciplineList records={discipline} onStatusChange={updateDisciplineStatus} onDelete={deleteDiscipline} /> : <TalentList records={talents} onStatusChange={updateTalentStatus} onDelete={deleteTalent} />}
       </div>
     </section>
   );
@@ -145,9 +160,9 @@ export function Phase3MonitoringSection() {
 
 function EmptyState({ icon: Icon, text }: { icon: typeof ShieldAlert; text: string }) { return <div className="py-12 text-center text-slate-400"><Icon className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>{text}</p></div>; }
 
-function AttendanceList({ records }: { records: AttendanceRecord[] }) {
+function AttendanceList({ records, onDelete }: { records: AttendanceRecord[]; onDelete: (id: string) => void }) {
   if (!records.length) return <EmptyState icon={ClipboardCheck} text="لا توجد سجلات حضور بعد" />;
-  return <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="text-right px-4 py-3">الطالب</th><th className="text-right px-4 py-3">الصف</th><th className="text-right px-4 py-3">التاريخ</th><th className="text-right px-4 py-3">الحالة</th><th className="text-right px-4 py-3">التأخر</th></tr></thead><tbody>{records.map(record => <tr key={record.id} className="border-b border-slate-100"><td className="px-4 py-3 font-medium">{record.student_code}</td><td className="px-4 py-3 text-slate-600">{record.student_grade}</td><td className="px-4 py-3 text-slate-600">{record.attendance_date_hijri}</td><td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : record.status === 'late' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{record.status_label}</span></td><td className="px-4 py-3 text-slate-600">{record.minutes_late} دقيقة</td></tr>)}</tbody></table></div></div>;
+  return <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="text-right px-4 py-3">الطالب</th><th className="text-right px-4 py-3">الصف</th><th className="text-right px-4 py-3">التاريخ</th><th className="text-right px-4 py-3">الحالة</th><th className="text-right px-4 py-3">التأخر</th><th className="px-2 py-3"></th></tr></thead><tbody>{records.map(record => <tr key={record.id} className="border-b border-slate-100"><td className="px-4 py-3 font-medium">{record.student_code}</td><td className="px-4 py-3 text-slate-600">{record.student_grade}</td><td className="px-4 py-3 text-slate-600">{record.attendance_date_hijri}</td><td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${record.status === 'present' ? 'bg-emerald-100 text-emerald-700' : record.status === 'late' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{record.status_label}</span></td><td className="px-4 py-3 text-slate-600">{record.minutes_late} دقيقة</td><td className="px-2"><button onClick={() => onDelete(record.id)} className="p-1.5 text-slate-400 hover:text-rose-600" title="حذف"><Trash2 className="w-4 h-4" /></button></td></tr>)}</tbody></table></div></div>;
 }
 
 function DisciplineList({ records, onStatusChange, onDelete }: { records: DisciplineRecord[]; onStatusChange: (record: DisciplineRecord, status: string, label: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { FOUNDER_NAME } from './brand';
 
 /**
  * تحويل قالب HTML عربي إلى ملف PDF بصفحات A4.
@@ -11,14 +12,14 @@ import html2canvas from 'html2canvas';
 
 const PAGE_W_PX = 794; // عرض A4 عند 96dpi
 const PAGE_H_PX = Math.round((PAGE_W_PX * 297) / 210); // 1123
-const MARGIN_Y_PX = 40;
-const FOOTER_PX = 28;
+const MARGIN_Y_PX = 28;
+const FOOTER_PX = 24;
 const CONTENT_H_PX = PAGE_H_PX - MARGIN_Y_PX * 2 - FOOTER_PX;
 const SCALE = 2;
 
 export const PDF_BASE_CSS = `
   .pdf-root, .pdf-root * { box-sizing: border-box; letter-spacing: 0 !important; word-spacing: normal; }
-  .pdf-root { font-family: 'Tajawal', 'Cairo', Arial, sans-serif; direction: rtl; text-align: right; color: #1e293b; font-size: 13px; line-height: 1.75; font-weight: 400; }
+  .pdf-root { font-family: 'Tajawal', Arial, sans-serif; direction: rtl; text-align: right; color: #1b2a38; font-size: 13px; line-height: 1.75; font-weight: 500; }
   .pdf-root table { width: 100%; border-collapse: collapse; }
   .pdf-root th, .pdf-root td { vertical-align: middle; }
   .pdf-root .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
@@ -86,7 +87,6 @@ async function waitForAssets(root: HTMLElement): Promise<void> {
       await Promise.all(
         ['400', '500', '700', '800'].flatMap(w => [
           fonts.load(`${w} 14px Tajawal`, 'بوصلة'),
-          fonts.load(`${w} 14px Cairo`, 'بوصلة'),
         ]),
       );
       await fonts.ready;
@@ -103,7 +103,7 @@ export async function renderHtmlToPdf(html: string, options: PdfOptions = {}): P
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
   host.style.cssText = `position:absolute; left:-10000px; top:0; width:${PAGE_W_PX}px; background:#fff; z-index:-1;`;
-  host.innerHTML = `<style>${PDF_BASE_CSS}</style><div class="pdf-root" dir="rtl" lang="ar" style="width:${PAGE_W_PX}px; padding:0 44px; background:#fff;">${html}</div>`;
+  host.innerHTML = `<style>${PDF_BASE_CSS}</style><div class="pdf-root" dir="rtl" lang="ar" style="width:${PAGE_W_PX}px; padding:0 40px 28px; background:#fff;">${html}</div>`;
   document.body.appendChild(host);
   const root = host.querySelector('.pdf-root') as HTMLElement;
 
@@ -166,10 +166,12 @@ export async function renderHtmlToPdf(html: string, options: PdfOptions = {}): P
       if (i > 0) pdf.addPage();
       pdf.addImage(page.toDataURL('image/jpeg', 0.92), 'JPEG', 0, MARGIN_Y_PX * pxToMm, 210, sliceH * pxToMm, undefined, 'FAST');
 
-      pdf.setFontSize(8);
-      pdf.setTextColor(148, 163, 184);
-      pdf.text(`${i + 1} / ${pageCount}`, 105, 297 - 8, { align: 'center' });
-      if (options.footerLatin) pdf.text(options.footerLatin, 15, 297 - 8);
+      if (pageCount > 1) {
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(`${i + 1} / ${pageCount}`, 105, 297 - 6, { align: 'center' });
+      }
+      if (options.footerLatin) pdf.text(options.footerLatin, 15, 297 - 6);
     }
     return pdf;
   } finally {
@@ -206,7 +208,7 @@ export function brandHeader(title: string, subtitle = ''): string {
   const greg = new Date().toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'long', day: 'numeric' });
   return `
     <div data-pdf-block style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:8px 0 14px; border-bottom:3px solid #0e7490; margin-bottom:22px;">
-      <img src="${logoUrl()}" alt="بوصلة" style="height:64px; width:auto; display:block;" />
+      <div style="text-align:center;"><img src="${logoUrl()}" alt="بوصلة" style="height:60px; width:auto; display:block;" /><div style="font-size:10.5px; font-weight:800; color:#10324a; margin-top:2px;">${esc(FOUNDER_NAME)}</div></div>
       <div style="text-align:left; direction:rtl;">
         <div style="font-size:17px; font-weight:800; color:#10324a; line-height:1.4;">${esc(title)}</div>
         ${subtitle ? `<div style="font-size:12px; color:#0e7490; margin-top:2px;">${esc(subtitle)}</div>` : ''}

@@ -7,8 +7,9 @@ import {
 import QRCode from 'qrcode';
 import { downloadHtmlAsPdf, brandHeader, qrCardsHtml, esc } from '@/lib/pdfExport';
 import { audienceLabel } from '@/lib/labels';
+import { PROGRAM_NAMES, indicatorsForPrograms } from '@/lib/autoIndicators';
 import {
-  fetchSurveys, createSurvey, updateSurvey, deleteSurvey, duplicateSurvey,
+  fetchSurveys, createSurvey, updateSurvey, deleteSurvey, duplicateSurvey, deleteSurveyResponses,
   fetchSurveyResponses,
   type SurveyDefinition, type SurveySection, type SurveySectionItem, type SurveyExtra, type SurveyDemographic,
 } from '@/lib/supabase';
@@ -97,7 +98,7 @@ export function SurveyAdminSection() {
               <FileQuestion className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 font-cairo">محرك الاستبيانات - لوحة الإدارة</h2>
+              <h2 className="text-xl font-bold text-slate-800 font-cairo">إدارة الاستبيانات</h2>
               <p className="text-sm text-slate-500">إنشاء وتحرير ونشر الاستبيانات ومتابعة الاستجابات</p>
             </div>
           </div>
@@ -132,7 +133,7 @@ export function SurveyAdminSection() {
                   <button onClick={() => handleDuplicate(s.id)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"><Copy className="w-3.5 h-3.5" /> نسخ</button>
                   <button onClick={() => handleViewResponses(s)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100"><CheckCircle2 className="w-3.5 h-3.5" /> استجابات</button>
                   {s.status !== 'archived' && <button onClick={() => handleArchive(s)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"><Archive className="w-3.5 h-3.5" /> أرشفة</button>}
-                  <button onClick={() => handleDelete(s.id)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDelete(s.id)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"><Trash2 className="w-3.5 h-3.5" /> حذف</button>
                 </div>
               </div>
             ))}
@@ -253,6 +254,16 @@ function SurveyBuilder({ survey, onClose }: { survey: SurveyDefinition; onClose:
             <label className="text-sm font-medium text-slate-700 sm:col-span-2">المقدمة
               <textarea value={draft.intro} onChange={e => setDraft({ ...draft, intro: e.target.value })} rows={2} className="block mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" />
             </label>
+            <div className="sm:col-span-2">
+              <p className="text-sm font-medium text-slate-700 mb-1.5">البرامج المرتبطة <span className="text-xs text-slate-500">(مؤشرات الاعتماد تُحدد تلقائيًا منها)</span></p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(PROGRAM_NAMES).map(([pid, pname]) => {
+                  const on = (draft.programs || []).includes(pid);
+                  return <button type="button" key={pid} onClick={() => setDraft({ ...draft, programs: on ? (draft.programs || []).filter(x => x !== pid) : [...(draft.programs || []), pid] })} className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-300'}`}>{pname}</button>;
+                })}
+              </div>
+              {(draft.programs || []).length > 0 && <p className="mt-2 text-xs text-leaf-700 font-bold">المؤشرات: <span dir="ltr">{indicatorsForPrograms(draft.programs || []).join('، ')}</span></p>}
+            </div>
             <label className="text-sm font-medium text-slate-700">المعرّف (slug)
               <input value={draft.slug || ''} onChange={e => setDraft({ ...draft, slug: e.target.value })} dir="ltr" className="block mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" />
             </label>
@@ -487,14 +498,24 @@ function PublishPanel({ survey, onClose }: { survey: SurveyDefinition; onClose: 
 
 // ============ RESPONSES PANEL ============
 
-function ResponsesPanel({ survey, list, onClose }: { survey: SurveyDefinition; list: Array<{ id: string; demographics: Record<string, string>; answers: Record<string, number>; text_answers: Record<string, string>; submitted_at: string }>; onClose: () => void }) {
+function ResponsesPanel({ survey, list: initial, onClose }: { survey: SurveyDefinition; list: Array<{ id: string; demographics: Record<string, string>; answers: Record<string, number>; text_answers: Record<string, string>; submitted_at: string }>; onClose: () => void }) {
+  const [list, setList] = useState(initial);
+  const [err, setErr] = useState('');
+  const clearAll = async () => {
+    if (!confirm(`حذف كل إجابات «${survey.title}» (${list.length}) نهائيًا؟`)) return;
+    try { await deleteSurveyResponses(survey.id); setList([]); } catch (e) { setErr(e instanceof Error ? e.message : 'تعذر الحذف'); }
+  };
   return (
     <section className="py-8 bg-slate-50 min-h-screen" dir="rtl">
       <div className="max-w-5xl mx-auto px-4">
         <button onClick={onClose} className="text-sm text-indigo-700 hover:underline mb-4">عودة</button>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <h2 className="text-lg font-bold text-slate-800 font-cairo mb-2">{survey.title}</h2>
-          <p className="text-sm text-slate-500 mb-4">{list.length} استجابة</p>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm text-slate-500">{list.length} استجابة</p>
+            {list.length > 0 && <button onClick={clearAll} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold"><Trash2 className="w-3.5 h-3.5" /> حذف كل الإجابات</button>}
+          </div>
+          {err && <p className="text-sm text-rose-700 mb-3">{err}</p>}
           {list.length === 0 ? (
             <div className="text-center py-12 text-slate-400"><CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>لا توجد استجابات بعد</p></div>
           ) : (

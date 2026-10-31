@@ -113,7 +113,7 @@ export function StandaloneSpecSurvey({ surveyId, onClose }: { surveyId: string; 
       </div>
     );
   }
-  return <div className="min-h-screen bg-slate-50"><div className="max-w-3xl mx-auto px-4 pt-6 flex justify-center"><Logo variant="full" size={44} /></div><SurveyForm survey={survey} onBack={onClose} standalone /></div>;
+  return <div className="min-h-screen bg-slate-50"><div className="max-w-3xl mx-auto px-4 pt-6 flex justify-center"><Logo variant="full" size={48} withFounder /></div><SurveyForm survey={survey} onBack={onClose} standalone /></div>;
 }
 
 function SurveyForm({ survey, onBack, standalone = false }: { survey: SurveyConfig; onBack: () => void; standalone?: boolean }) {

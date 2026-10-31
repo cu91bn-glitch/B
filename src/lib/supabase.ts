@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { indicatorsForPrograms } from './autoIndicators';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -148,8 +149,24 @@ export async function fetchReadinessStats(): Promise<ReadinessStat[]> {
 }
 
 export function buildPublicEvidenceUrl(publicToken: string): string {
-  const base = supabaseUrl?.replace(/\/$/, '') || '';
-  return `${base}/evidence/${publicToken}`;
+  return `${window.location.origin}/?e=${publicToken}`;
+}
+
+export interface PublicEvidence {
+  title: string;
+  category: string;
+  file_type: 'image' | 'pdf';
+  indicator_codes: string[];
+  evidence_date_hijri: string | null;
+  created_at: string;
+  url: string;
+}
+
+/** عرض شاهد عبر باركود التحقق (بدون تسجيل دخول) */
+export async function fetchPublicEvidence(token: string): Promise<PublicEvidence | null> {
+  const { data, error } = await supabase.functions.invoke('public-evidence', { body: { token } });
+  if (error) return null;
+  return (data as PublicEvidence) || null;
 }
 
 // ============ Consultations ============
@@ -176,6 +193,17 @@ export async function submitConsultation(data: {
     message: data.message,
   });
   if (error) throw new Error('فشل إرسال الاستشارة');
+}
+
+export async function fetchConsultations(): Promise<ConsultationRecord[]> {
+  const { data, error } = await supabase.from('guidance_consultations').select('*').order('created_at', { ascending: false }).limit(200);
+  if (error) throw new Error('تعذر تحميل الاستشارات');
+  return (data || []) as ConsultationRecord[];
+}
+
+export async function deleteConsultation(id: string): Promise<void> {
+  const { error } = await supabase.from('guidance_consultations').delete().eq('id', id);
+  if (error) throw new Error('تعذر حذف الاستشارة');
 }
 
 export async function fetchConsultationStats(): Promise<{
@@ -529,6 +557,21 @@ export async function updateDiscipline(id: string, input: Partial<Pick<Disciplin
   if (error) throw new Error('فشل تحديث سجل الانضباط');
 }
 
+export async function deleteEarlyAlert(id: string): Promise<void> {
+  const { error } = await supabase.from('guidance_early_alerts').delete().eq('id', id);
+  if (error) throw new Error('تعذر حذف الإنذار');
+}
+
+export async function deleteAllEarlyAlerts(): Promise<void> {
+  const { error } = await supabase.from('guidance_early_alerts').delete().not('id', 'is', null);
+  if (error) throw new Error('تعذر حذف الإنذارات');
+}
+
+export async function deleteAttendance(id: string): Promise<void> {
+  const { error } = await supabase.from('guidance_attendance').delete().eq('id', id);
+  if (error) throw new Error('تعذر حذف السجل');
+}
+
 export async function deleteDiscipline(id: string): Promise<void> {
   const { error } = await supabase.from('guidance_discipline').delete().eq('id', id);
   if (error) throw new Error('فشل حذف سجل الانضباط');
@@ -779,7 +822,7 @@ export async function createSurvey(input: Partial<SurveyDefinition>): Promise<Su
     sections: input.sections || [],
     extra: input.extra || [],
     settings: input.settings || { anonymous: true, one_response_per_device: true },
-    indicators: input.indicators || [],
+    indicators: input.programs?.length ? indicatorsForPrograms(input.programs) : (input.indicators || []),
     programs: input.programs || [],
     resources: input.resources || [],
     publish_gate: input.publish_gate || null,
@@ -801,11 +844,20 @@ export async function updateSurvey(id: string, input: Partial<SurveyDefinition>)
   if (input.extra !== undefined) update.extra = input.extra;
   if (input.settings !== undefined) update.settings = input.settings;
   if (input.indicators !== undefined) update.indicators = input.indicators;
-  if (input.programs !== undefined) update.programs = input.programs;
+  if (input.programs !== undefined) {
+    update.programs = input.programs;
+    // مؤشرات الاعتماد تُحدد تلقائيًا من البرامج المرتبطة
+    if (input.programs.length) update.indicators = indicatorsForPrograms(input.programs);
+  }
   if (input.resources !== undefined) update.resources = input.resources;
   if (input.publish_gate !== undefined) update.publish_gate = input.publish_gate;
   const { error } = await supabase.from('guidance_surveys').update(update).eq('id', id);
   if (error) throw new Error('فشل تحديث الاستبيان');
+}
+
+export async function deleteSurveyResponses(surveyId: string): Promise<void> {
+  const { error } = await supabase.from('guidance_survey_public_responses').delete().eq('survey_id', surveyId);
+  if (error) throw new Error('تعذر حذف الإجابات');
 }
 
 export async function deleteSurvey(id: string): Promise<void> {
@@ -817,10 +869,16 @@ export async function duplicateSurvey(id: string): Promise<SurveyDefinition> {
   const { data, error } = await supabase.from('guidance_surveys').select('*').eq('id', id).single();
   if (error) throw new Error('فشل جلب الاستبيان');
   const original = data as SurveyDefinition;
+  // عنوان النسخة: «العنوان (نسخة 2)» بدل تكرار كلمة (نسخة) في كل مرة
+  const base = original.title.replace(/(\s*\(نسخة(\s*\d+)?\))+\s*$/, '').trim();
+  const { data: siblings } = await supabase.from('guidance_surveys').select('title').like('title', `${base}%`);
+  let n = 2;
+  const taken = new Set(((siblings || []) as { title: string }[]).map(r => r.title));
+  while (taken.has(`${base} (نسخة ${n})`)) n++;
   return createSurvey({
     ...original,
-    title: `${original.title} (نسخة)`,
-    slug: generateSlug(`${original.title}-copy`),
+    title: `${base} (نسخة ${n})`,
+    slug: generateSlug(`${base}-${n}`),
     status: 'draft',
   });
 }

@@ -1,3 +1,5 @@
+import { AutoIndicators } from '@/components/AutoIndicators';
+import { indicatorsForContext } from '@/lib/autoIndicators';
 import { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Plus, X, Trash2, Loader2, Heart, Users,
@@ -95,7 +97,7 @@ export function CaseRegistrySection() {
         status: form.status,
         status_label: statusLabels[form.status],
         open_date_hijri: form.open_date_hijri || undefined,
-        indicator_codes: selectedCodes,
+        indicator_codes: indicatorsForContext('case', form.case_type),
       });
       setForm({ case_number: '', student_grade: '', case_type: 'psychological', classification: 'mild', intervention_plan: '', sessions_count: 0, status: 'open', open_date_hijri: '' });
       setSelectedCodes([]);
@@ -281,38 +283,7 @@ export function CaseRegistrySection() {
                   className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
                 />
               </div>
-              <div className="md:col-span-2">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-2">
-                  <Target className="w-4 h-4 text-slate-400" />
-                  مؤشرات الاعتماد المرتبطة
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                  {accreditationDomains.map(domain => {
-                    const colors = indicatorColorMap[domain.color];
-                    return (
-                      <div key={domain.id}>
-                        <p className={`text-xs font-bold ${colors.text} px-1`}>{domain.title}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {domain.indicators.map(ind => {
-                            const active = selectedCodes.includes(ind.code);
-                            return (
-                              <button
-                                key={ind.code}
-                                onClick={() => toggleCode(ind.code)}
-                                className={`text-xs px-2 py-1 rounded-lg border transition-all ${
-                                  active ? `${colors.bg} ${colors.text} ${colors.border} font-medium` : 'bg-white text-slate-500 border-slate-200'
-                                }`}
-                              >
-                                {ind.code}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <div className="md:col-span-2"><AutoIndicators codes={indicatorsForContext('case', form.case_type)} /></div>
             </div>
             <div className="flex gap-2 mt-4">
               <button onClick={handleSubmit} className="flex-1 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors">
