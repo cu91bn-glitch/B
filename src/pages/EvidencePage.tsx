@@ -7,11 +7,20 @@ import {
   createEvidence, deleteEvidence, fetchEvidence, getEvidenceUrl, buildPublicEvidenceUrl, type EvidenceRecord,
 } from '@/lib/supabase';
 import { PROGRAM_NAMES, indicatorsForPrograms } from '@/lib/autoIndicators';
+import { fileModules } from '@/data';
 import { Panel } from '@/components/layout/AppShell';
+import { DateField } from '@/components/ui/DateField';
 
 const GENERAL = 'general';
-const programOptions = [{ id: GENERAL, name: 'عام (بدون برنامج محدد)' }, ...Object.entries(PROGRAM_NAMES).map(([id, name]) => ({ id, name }))];
-const programName = (id: string) => (id === GENERAL ? 'عام' : PROGRAM_NAMES[id] || id);
+// ملفات الموجّه (التصنيف السابق للشواهد) وربطها ببرامج زاد لتحديد المؤشرات
+const FILE_MODULE_PROGRAM: Record<string, string> = {
+  'career-motivation': 'motivation', 'career-preparation': 'orientation', 'career-crisis': 'crisis', 'career-family-relation': 'family',
+  'career-problems': 'psychosocial', 'selfeval-student-rights': 'conduct', 'selfeval-volunteer': 'psychosocial', 'selfeval-behavior-compliance': 'conduct',
+  'selfeval-incentives': 'honor', 'selfeval-activities': 'orientation', 'selfeval-positive-behavior': 'positive', 'community-parent-visits': 'family',
+  'community-top-students': 'excellence', 'community-absentees': 'absence_lag',
+};
+const programName = (id: string) => (id === GENERAL ? 'عام' : PROGRAM_NAMES[id] || fileModules.find(m => m.id === id)?.title || (id.startsWith('criterion-') ? 'الأداء الوظيفي' : id));
+const programsOf = (id: string) => (PROGRAM_NAMES[id] ? [id] : FILE_MODULE_PROGRAM[id] ? [FILE_MODULE_PROGRAM[id]] : []);
 
 export function EvidencePage() {
   const [items, setItems] = useState<EvidenceRecord[] | null>(null);
@@ -98,12 +107,13 @@ function NewEvidence({ onCreated }: { onCreated: (r: EvidenceRecord) => void }) 
   const [title, setTitle] = useState('');
   const [program, setProgram] = useState(GENERAL);
   const [dateHijri, setDateHijri] = useState('');
+  const [dateG, setDateG] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const codes = program === GENERAL ? [] : indicatorsForPrograms([program]);
+  const codes = indicatorsForPrograms(programsOf(program));
 
   const submit = async () => {
     setError(''); setDone(false);
@@ -113,10 +123,10 @@ function NewEvidence({ onCreated }: { onCreated: (r: EvidenceRecord) => void }) 
     try {
       const rec = await createEvidence({
         file, title: title.trim(), module: program, category: programName(program),
-        activityTitle: title.trim(), indicatorCodes: codes, dateHijri: dateHijri || undefined,
+        activityTitle: title.trim(), indicatorCodes: codes, dateHijri: dateHijri || undefined, dateGregorian: dateG || undefined,
       });
       onCreated(rec);
-      setTitle(''); setFile(null); setDateHijri(''); setDone(true);
+      setTitle(''); setFile(null); setDateHijri(''); setDateG(''); setDone(true);
     } catch (err) { setError(err instanceof Error ? err.message : 'تعذر رفع الشاهد'); }
     finally { setBusy(false); }
   };
@@ -127,19 +137,25 @@ function NewEvidence({ onCreated }: { onCreated: (r: EvidenceRecord) => void }) 
         <label className="block text-sm font-bold text-slate-700">عنوان الشاهد
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: لقاء تهيئة طلاب الصف الأول" className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium" />
         </label>
-        <label className="block text-sm font-bold text-slate-700">البرنامج
+        <label className="block text-sm font-bold text-slate-700">البرنامج أو الملف
           <select value={program} onChange={e => setProgram(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium">
-            {programOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <option value={GENERAL}>عام (بدون تصنيف)</option>
+            <optgroup label="برامج دليل زاد">
+              {Object.entries(PROGRAM_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </optgroup>
+            {(['career', 'self_eval', 'community', 'documents'] as const).map(cat => (
+              <optgroup key={cat} label={`ملفات الموجّه — ${fileModules.find(m => m.category === cat)?.categoryLabel}`}>
+                {fileModules.filter(m => m.category === cat).map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </optgroup>
+            ))}
           </select>
         </label>
         <div className="rounded-xl bg-leaf-50/70 border border-leaf-100 p-3">
           <p className="text-xs font-bold text-leaf-800 mb-1.5">مؤشرات الاعتماد (تُحدد تلقائيًا من البرنامج)</p>
           {codes.length ? <div className="flex flex-wrap gap-1">{codes.map(c => <span key={c} dir="ltr" className="text-[11px] font-bold rounded-md bg-white text-leaf-700 border border-leaf-200 px-1.5 py-0.5">{c}</span>)}</div>
-            : <p className="text-xs text-slate-500">اختر برنامجًا ليرتبط الشاهد بمؤشراته.</p>}
+            : <p className="text-xs text-slate-500">اختر برنامجًا أو ملفًا مرتبطًا ببرنامج ليرتبط الشاهد بمؤشراته.</p>}
         </div>
-        <label className="block text-sm font-bold text-slate-700">التاريخ (اختياري)
-          <input value={dateHijri} onChange={e => setDateHijri(e.target.value)} placeholder="مثال: 15/3/1448" className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium" />
-        </label>
+        <DateField label="تاريخ الشاهد" value={dateG} onChange={(g, h) => { setDateG(g); setDateHijri(h); }} />
         <button type="button" onClick={() => input.current?.click()} className="w-full rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/50 hover:bg-brand-50 py-5 text-sm font-bold text-brand-800 flex flex-col items-center gap-1.5">
           <Upload className="w-6 h-6 text-brand-600" />
           {file ? <span className="text-slate-700">{file.name}</span> : 'اختر صورة أو ملف PDF (حتى 10 ميجا)'}
@@ -150,7 +166,6 @@ function NewEvidence({ onCreated }: { onCreated: (r: EvidenceRecord) => void }) 
         <button onClick={submit} disabled={busy} className="w-full rounded-xl bg-gradient-to-l from-brand-600 to-leaf-500 text-white py-3 text-sm font-extrabold shadow-md shadow-brand-600/20 disabled:opacity-60">
           {busy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'رفع الشاهد'}
         </button>
-        <p className="text-[11px] text-slate-500 leading-5">الملفات تُحفظ في قاعدة البيانات (Supabase) مباشرة، ولا تستهلك رصيد Netlify.</p>
       </div>
     </Panel>
   );

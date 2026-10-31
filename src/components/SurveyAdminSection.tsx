@@ -2,12 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Trash2, Copy, Archive, Edit3, Eye, X, Check, ChevronUp, ChevronDown,
   Loader2, FileQuestion, Link2, Download, QrCode as QrIcon, AlertCircle,
-  CheckCircle2, GripVertical, Settings, Send,
+  CheckCircle2, GripVertical, Settings, Send, LayoutTemplate,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { downloadHtmlAsPdf, brandHeader, qrCardsHtml, esc } from '@/lib/pdfExport';
 import { audienceLabel } from '@/lib/labels';
 import { PROGRAM_NAMES, indicatorsForPrograms } from '@/lib/autoIndicators';
+import { SURVEY_TEMPLATES, buildTemplate } from '@/lib/surveyTemplates';
+import { Dialog } from '@/components/ui/kit';
 import {
   fetchSurveys, createSurvey, updateSurvey, deleteSurvey, duplicateSurvey, deleteSurveyResponses,
   fetchSurveyResponses,
@@ -43,6 +45,19 @@ export function SurveyAdminSection() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [creatingTpl, setCreatingTpl] = useState('');
+  const applyTemplate = async (key: string) => {
+    setCreatingTpl(key);
+    try {
+      const created = await createSurvey({ ...buildTemplate(key), slug: `${key}-${Date.now().toString(36)}`, status: 'published' });
+      setShowTemplates(false);
+      await load();
+      setPublishing(created);
+    } catch (err) { setError(err instanceof Error ? err.message : 'تعذر إنشاء الاستبيان'); }
+    finally { setCreatingTpl(''); }
+  };
 
   const handleNew = async () => {
     try {
@@ -102,9 +117,14 @@ export function SurveyAdminSection() {
               <p className="text-sm text-slate-500">إنشاء وتحرير ونشر الاستبيانات ومتابعة الاستجابات</p>
             </div>
           </div>
-          <button onClick={handleNew} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-            <Plus className="w-4 h-4" /> استبيان جديد
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowTemplates(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-l from-brand-600 to-leaf-500 rounded-lg shadow-md shadow-brand-600/20">
+              <LayoutTemplate className="w-4 h-4" /> نماذج الرضا والأثر الجاهزة
+            </button>
+            <button onClick={handleNew} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-brand-800 bg-white border border-brand-200 hover:bg-brand-50 rounded-lg transition-colors">
+              <Plus className="w-4 h-4" /> كتابة استبيان جديد
+            </button>
+          </div>
         </div>
 
         {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4"><AlertCircle className="w-4 h-4" />{error}<button onClick={() => setError('')} className="mr-auto"><X className="w-4 h-4" /></button></div>}
@@ -140,6 +160,24 @@ export function SurveyAdminSection() {
           </div>
         )}
       </div>
+      <Dialog open={showTemplates} title="نماذج جاهزة لاستبانات الرضا وقياس الأثر" onClose={() => setShowTemplates(false)} wide>
+        <p className="text-sm text-slate-600 mb-4">اختر نموذجًا، وسيُنشأ الاستبيان ويظهر لك رابطه وباركوده للنشر مباشرة. يمكنك تعديل أي فقرة لاحقًا من «تحرير».</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {SURVEY_TEMPLATES.map(t => (
+            <div key={t.key} className="rounded-xl border border-slate-200 p-4 hover:border-brand-300 transition-colors flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-bold rounded-full px-2.5 py-0.5 ${t.kind === 'رضا' ? 'bg-brand-50 text-brand-800' : 'bg-leaf-50 text-leaf-700'}`}>{t.kind === 'رضا' ? 'قياس رضا' : 'قياس أثر'}</span>
+                <span className="text-[11px] font-bold text-slate-500">{t.who} · {t.sections} محاور · {t.items} فقرة</span>
+              </div>
+              <p className="mt-2 font-extrabold text-brand-900 leading-7">{t.title}</p>
+              <p className="text-xs text-slate-600 leading-6 mt-1 flex-1">{t.intro}</p>
+              <button onClick={() => applyTemplate(t.key)} disabled={!!creatingTpl} className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-700 text-white px-3 py-2 text-sm font-bold disabled:opacity-60">
+                {creatingTpl === t.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} استخدام ونشر
+              </button>
+            </div>
+          ))}
+        </div>
+      </Dialog>
     </section>
   );
 }

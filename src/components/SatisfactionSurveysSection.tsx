@@ -1,4 +1,5 @@
 import { AutoIndicators } from '@/components/AutoIndicators';
+import { DateField } from '@/components/ui/DateField';
 import { indicatorsForContext } from '@/lib/autoIndicators';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -18,6 +19,7 @@ export function SatisfactionSurveysSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [dateG, setDateG] = useState('');
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
 
   const [form, setForm] = useState({
@@ -78,6 +80,7 @@ export function SatisfactionSurveysSection() {
         areas: validAreas,
         indicator_codes: indicatorsForContext('satisfaction', form.survey_type),
         conducted_date_hijri: form.conducted_date_hijri || undefined,
+        conducted_date_gregorian: dateG || undefined,
       });
       setForm({ survey_type: 'program', target_group: '', total_responses: 0, satisfaction_score: 0, conducted_date_hijri: '' });
       setAreas([{ area: '', score: 0 }]);
@@ -207,13 +210,7 @@ export function SatisfactionSurveysSection() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">التاريخ الهجري</label>
-                <input
-                  value={form.conducted_date_hijri}
-                  onChange={e => setForm({ ...form, conducted_date_hijri: e.target.value })}
-                  placeholder="مثال: 10 رجب 1448هـ"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                />
+                <DateField label="تاريخ التطبيق" value={dateG} onChange={(g, h) => { setDateG(g); setForm({ ...form, conducted_date_hijri: h }); }} />
               </div>
             </div>
 

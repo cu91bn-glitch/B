@@ -17,8 +17,13 @@ import { SurveyAnalysisSection } from '@/components/SurveyAnalysisSection';
 import { CaseRegistrySection } from '@/components/CaseRegistrySection';
 import { Phase3MonitoringSection } from '@/components/Phase3MonitoringSection';
 import { NoorImport } from '@/components/NoorImport';
-import { ParentCouncilSection } from '@/components/ParentCouncilSection';
-import { SatisfactionSurveysSection } from '@/components/SatisfactionSurveysSection';
+import { ProfilePage } from '@/pages/ProfilePage';
+import { ProgramsPage } from '@/pages/ProgramsPage';
+import { PerformancePage } from '@/pages/PerformancePage';
+import { CouncilPage } from '@/pages/CouncilPage';
+import { StudentVoicePage } from '@/pages/StudentVoicePage';
+import { SatisfactionPage } from '@/pages/SatisfactionPage';
+import { ValuesPage } from '@/pages/ValuesPage';
 import { CoverageMapSection } from '@/components/CoverageMapSection';
 import { ZadLibrarySection } from '@/components/ZadLibrarySection';
 import { DataExportSection } from '@/components/DataExportSection';
@@ -91,14 +96,20 @@ function ZadResourceRedirect({ slug, onFallback, onClose }: { slug: string; onFa
 function Page({ page, go }: { page: PageId; go: (p: PageId) => void }) {
   switch (page) {
     case 'home': return <DashboardPage onNavigate={go} />;
+    case 'profile': return <ProfilePage />;
+    case 'programs': return <ProgramsPage />;
     case 'surveys': return <SurveyAdminSection />;
     case 'analysis': return <SurveyAnalysisSection />;
     case 'evidence': return <EvidencePage />;
     case 'monitoring': return <MonitoringPage />;
     case 'cases': return <CaseRegistrySection />;
     case 'clinic': return <ClinicPage />;
-    case 'councils': return <><ParentCouncilSection /><SatisfactionSurveysSection /></>;
+    case 'students': return <StudentVoicePage onImport={() => go('monitoring')} />;
+    case 'councils': return <CouncilPage table="guidance_parent_council" />;
+    case 'satisfaction': return <SatisfactionPage onManage={() => go('surveys')} />;
     case 'indicators': return <CoverageMapSection />;
+    case 'performance': return <PerformancePage />;
+    case 'values': return <ValuesPage />;
     case 'zad': return <ZadLibrarySection />;
     case 'export': return <ExportPage />;
   }

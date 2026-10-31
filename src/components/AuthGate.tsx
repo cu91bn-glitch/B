@@ -65,7 +65,7 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-cyan-50/40 p-4" dir="rtl">
       <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-6"><Logo variant="full" size={64} /></div>
+        <div className="flex justify-center mb-6"><Logo variant="full" size={64} withFounder /></div>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center">{children}</div>
       </div>
     </div>

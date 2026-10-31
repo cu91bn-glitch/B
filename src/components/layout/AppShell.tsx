@@ -2,23 +2,31 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   LayoutDashboard, ClipboardList, BarChart3, FolderOpen, ShieldAlert, HeartPulse,
   Stethoscope, Users, Target, BookOpen, Database, Menu, X, LogOut,
+  UserRound, ClipboardCheck, Trophy, Smile, Gauge, Heart,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { supabase } from '@/lib/supabase';
 import { FOUNDER_NAME } from '@/lib/brand';
 
 export type PageId =
-  | 'home' | 'surveys' | 'analysis' | 'evidence' | 'monitoring' | 'cases'
-  | 'clinic' | 'councils' | 'indicators' | 'zad' | 'export';
+  | 'home' | 'profile' | 'programs' | 'surveys' | 'analysis' | 'evidence' | 'monitoring' | 'cases'
+  | 'clinic' | 'students' | 'councils' | 'satisfaction' | 'indicators' | 'performance' | 'values' | 'zad' | 'export';
 
 type NavItem = { id: PageId; label: string; icon: React.ComponentType<{ className?: string }>; hint: string };
 
 export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
-  { title: '', items: [{ id: 'home', label: 'الرئيسية', icon: LayoutDashboard, hint: 'نظرة عامة على عملك' }] },
   {
-    title: 'العمل اليومي',
+    title: '',
     items: [
-      { id: 'surveys', label: 'الاستبيانات', icon: ClipboardList, hint: 'إنشاء الاستبيانات ونشرها ومشاركة الباركود' },
+      { id: 'home', label: 'الرئيسية', icon: LayoutDashboard, hint: 'نظرة عامة على عملك' },
+      { id: 'profile', label: 'ملف الموجّه', icon: UserRound, hint: 'بيانات الموجّه والمدرسة' },
+    ],
+  },
+  {
+    title: 'العمل الإرشادي',
+    items: [
+      { id: 'programs', label: 'البرامج الإرشادية', icon: ClipboardCheck, hint: 'البرامج الوقائية والنمائية والعلاجية ونتائجها' },
+      { id: 'surveys', label: 'الاستبيانات', icon: ClipboardList, hint: 'نماذج جاهزة، إنشاء، نشر، وباركود' },
       { id: 'analysis', label: 'التحليل والتقارير', icon: BarChart3, hint: 'تحليل النتائج وتقارير PDF' },
       { id: 'evidence', label: 'الشواهد', icon: FolderOpen, hint: 'رفع الشواهد وحذفها وباركود التحقق' },
     ],
@@ -29,15 +37,24 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { id: 'monitoring', label: 'المتابعة والإنذار المبكر', icon: ShieldAlert, hint: 'استيراد كشوف نور وفرز الطلاب' },
       { id: 'cases', label: 'سجل الحالات', icon: HeartPulse, hint: 'الحالات الفردية وخطط التدخل' },
       { id: 'clinic', label: 'العيادة الرقمية', icon: Stethoscope, hint: 'استشارات الطلاب ورابط العيادة' },
+      { id: 'students', label: 'صوت الطالب والتكريم', icon: Trophy, hint: 'المجلس الطلابي ولوحة الشرف' },
     ],
   },
   {
-    title: 'الاعتماد والمراجع',
+    title: 'الأسرة والمجتمع',
+    items: [
+      { id: 'councils', label: 'مجلس الآباء والأمهات', icon: Users, hint: 'الاجتماعات والتوصيات وتقارير PDF' },
+      { id: 'satisfaction', label: 'رضا المستفيدين والأثر', icon: Smile, hint: 'نماذج رضا وأثر جاهزة للنشر' },
+    ],
+  },
+  {
+    title: 'الاعتماد والأداء',
     items: [
       { id: 'indicators', label: 'مؤشرات الاعتماد', icon: Target, hint: 'تغطية المؤشرات والفجوات' },
-      { id: 'councils', label: 'المجالس ورضا المستفيدين', icon: Users, hint: 'مجلس الآباء واستبانات الرضا' },
+      { id: 'performance', label: 'الأداء الوظيفي', icon: Gauge, hint: 'معايير التقويم والتقييم الذاتي والشواهد' },
+      { id: 'values', label: 'مصفوفة القيم', icon: Heart, hint: 'القيم ومؤشراتها وأساليب تقويمها' },
       { id: 'zad', label: 'مكتبة زاد', icon: BookOpen, hint: 'الأدلة والموارد وباركوداتها' },
-      { id: 'export', label: 'النسخ الاحتياطي', icon: Database, hint: 'تصدير البيانات والتقرير الختامي' },
+      { id: 'export', label: 'التقرير الختامي والنسخ', icon: Database, hint: 'التقرير الختامي وتصدير البيانات' },
     ],
   },
 ];
@@ -98,8 +115,15 @@ export function AppShell({ page, onNavigate, children }: { page: PageId; onNavig
   );
 
   const brand = (
-    <div className="px-2 pb-5 mb-4 border-b border-slate-200/80 flex justify-center">
-      <Logo variant="full" size={52} withFounder />
+    <div className="pb-5 mb-4 border-b border-slate-200/80">
+      <div className="flex justify-center"><Logo variant="full" size={50} /></div>
+      <button onClick={() => { onNavigate('profile'); setOpen(false); }} className="mt-4 w-full flex items-center gap-3 rounded-2xl bg-gradient-to-l from-brand-50 to-leaf-50 border border-brand-100 p-2.5 text-right hover:shadow-sm transition-shadow">
+        <img src="/brand/founder-square.jpg" alt={FOUNDER_NAME} className="w-12 h-12 rounded-xl object-cover ring-2 ring-white shadow" />
+        <span className="min-w-0">
+          <span className="block text-[13px] font-extrabold text-brand-900 truncate">{FOUNDER_NAME}</span>
+          <span className="block text-[11px] font-bold text-slate-500">الموجّه الطلابي · مؤسس المنصة</span>
+        </span>
+      </button>
     </div>
   );
 
@@ -125,7 +149,7 @@ export function AppShell({ page, onNavigate, children }: { page: PageId; onNavig
           <Logo variant="full" size={34} />
           <span className="text-[10px] font-bold text-brand-800">{FOUNDER_NAME}</span>
         </div>
-        <span className="w-10" />
+        <button onClick={() => onNavigate('profile')} aria-label="ملف الموجّه"><img src="/brand/founder-square.jpg" alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-brand-100" /></button>
       </header>
 
       {/* القائمة المنبثقة - الجوال */}

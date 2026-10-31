@@ -1,4 +1,5 @@
 import { AutoIndicators } from '@/components/AutoIndicators';
+import { DateField } from '@/components/ui/DateField';
 import { indicatorsForContext } from '@/lib/autoIndicators';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -47,6 +48,7 @@ export function CaseRegistrySection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [dateG, setDateG] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
@@ -97,6 +99,7 @@ export function CaseRegistrySection() {
         status: form.status,
         status_label: statusLabels[form.status],
         open_date_hijri: form.open_date_hijri || undefined,
+        open_date_gregorian: dateG || undefined,
         indicator_codes: indicatorsForContext('case', form.case_type),
       });
       setForm({ case_number: '', student_grade: '', case_type: 'psychological', classification: 'mild', intervention_plan: '', sessions_count: 0, status: 'open', open_date_hijri: '' });
@@ -266,13 +269,7 @@ export function CaseRegistrySection() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">تاريخ الفتح (هجري)</label>
-                <input
-                  value={form.open_date_hijri}
-                  onChange={e => setForm({ ...form, open_date_hijri: e.target.value })}
-                  placeholder="مثال: 1 محرم 1448هـ"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
-                />
+                <DateField label="تاريخ فتح الحالة" value={dateG} onChange={(g, h) => { setDateG(g); setForm({ ...form, open_date_hijri: h }); }} />
               </div>
               <div className="md:col-span-2">
                 <label className="text-sm font-medium text-slate-700 mb-1.5 block">خطة التدخل</label>

@@ -233,11 +233,11 @@ export interface QrCard {
 export function qrCardsHtml(cards: QrCard[]): string {
   const card = (c: QrCard) => `
     <td style="width:50%; padding:0; vertical-align:top;">
-      <div style="border:1px dashed #cbd5e1; border-radius:12px; padding:12px; min-height:150px; background:#fff;">
+      <div style="border:1px dashed #94a3b8; border-radius:12px; padding:12px; min-height:150px; background:#fff;">
         <table><tr>
           <td style="vertical-align:top; padding-left:10px;">
             ${c.subtitle ? `<div style="font-size:10.5px; color:#64748b; margin-bottom:4px;">${esc(c.subtitle)}</div>` : ''}
-            <div style="font-size:13px; font-weight:700; color:#0f172a; line-height:1.6; max-height:126px; overflow:hidden;">${esc(c.title)}</div>
+            <div style="font-size:12.5px; font-weight:800; color:#0f172a; line-height:1.65; word-wrap:break-word; overflow-wrap:anywhere;">${esc(c.title)}</div>
             ${c.note ? `<div style="font-size:10.5px; color:#0e7490; margin-top:4px;">${esc(c.note)}</div>` : ''}
           </td>
           <td style="width:112px; vertical-align:top; text-align:center;">
