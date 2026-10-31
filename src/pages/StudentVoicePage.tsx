@@ -4,6 +4,7 @@ import { Panel } from '@/components/layout/AppShell';
 import { Badge, Empty, GhostButton } from '@/components/ui/kit';
 import { CouncilPage } from '@/pages/CouncilPage';
 import { fetchTalents, updateTalent, type TalentRecord } from '@/lib/supabase';
+import { VoiceSurveyCard, HonorReports } from '@/components/StudentVoiceExtras';
 
 /** صوت الطالب: اجتماعات المجلس الطلابي + لوحة الشرف للمتفوقين والموهوبين */
 export function StudentVoicePage({ onImport }: { onImport: () => void }) {
@@ -20,6 +21,10 @@ export function StudentVoicePage({ onImport }: { onImport: () => void }) {
   return (
     <>
       <CouncilPage table="guidance_student_council" />
+      <div className="px-4 sm:px-6 lg:px-10 mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <VoiceSurveyCard />
+        <HonorReports />
+      </div>
       <div className="px-4 sm:px-6 lg:px-10 mt-6">
         <Panel title="لوحة الشرف والتكريم" action={<Badge tone="amber"><Trophy className="w-3.5 h-3.5" /> {honored.length} مُكرَّم</Badge>}>
           {!talents ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-brand-500" /></div>

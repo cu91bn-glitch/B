@@ -17,6 +17,9 @@ import { SurveyAnalysisSection } from '@/components/SurveyAnalysisSection';
 import { CaseRegistrySection } from '@/components/CaseRegistrySection';
 import { Phase3MonitoringSection } from '@/components/Phase3MonitoringSection';
 import { NoorImport } from '@/components/NoorImport';
+import { NoorStatsCard } from '@/components/NoorStatsCard';
+import { PrePostPanel } from '@/components/PrePostPanel';
+import { ReadinessByDomain } from '@/components/ReadinessByDomain';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ProgramsPage } from '@/pages/ProgramsPage';
 import { PerformancePage } from '@/pages/PerformancePage';
@@ -99,7 +102,7 @@ function Page({ page, go }: { page: PageId; go: (p: PageId) => void }) {
     case 'profile': return <ProfilePage />;
     case 'programs': return <ProgramsPage />;
     case 'surveys': return <SurveyAdminSection />;
-    case 'analysis': return <SurveyAnalysisSection />;
+    case 'analysis': return <><SurveyAnalysisSection /><PrePostPanel /></>;
     case 'evidence': return <EvidencePage />;
     case 'monitoring': return <MonitoringPage />;
     case 'cases': return <CaseRegistrySection />;
@@ -107,7 +110,7 @@ function Page({ page, go }: { page: PageId; go: (p: PageId) => void }) {
     case 'students': return <StudentVoicePage onImport={() => go('monitoring')} />;
     case 'councils': return <CouncilPage table="guidance_parent_council" />;
     case 'satisfaction': return <SatisfactionPage onManage={() => go('surveys')} />;
-    case 'indicators': return <CoverageMapSection />;
+    case 'indicators': return <><ReadinessByDomain /><CoverageMapSection /></>;
     case 'performance': return <PerformancePage />;
     case 'values': return <ValuesPage />;
     case 'zad': return <ZadLibrarySection />;
@@ -121,6 +124,7 @@ function MonitoringPage() {
     <>
       <div className="px-4 sm:px-6 lg:px-10 mt-6"><NoorImport onSaved={() => setKey(k => k + 1)} /></div>
       <Phase3MonitoringSection key={key} />
+      <div className="px-4 sm:px-6 lg:px-10 mt-2"><NoorStatsCard /></div>
     </>
   );
 }

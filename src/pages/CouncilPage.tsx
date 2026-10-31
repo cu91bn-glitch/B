@@ -5,7 +5,7 @@ import { DateField } from '@/components/ui/DateField';
 import { Badge, Dialog, Empty, GhostButton, PrimaryButton, StatCard, TextArea, TextField, SelectField } from '@/components/ui/kit';
 import { AutoIndicators } from '@/components/AutoIndicators';
 import { deleteMeeting, fetchEvidenceByIds, fetchMeetings, saveMeeting, uploadReport, type CouncilMeeting, type CouncilTable } from '@/lib/store';
-import { deleteEvidence, getEvidenceUrl, type EvidenceRecord } from '@/lib/supabase';
+import { getEvidenceUrl, type EvidenceRecord } from '@/lib/supabase';
 import { indicatorsForPrograms } from '@/lib/autoIndicators';
 import { displayDate } from '@/lib/dates';
 
@@ -76,8 +76,6 @@ export function CouncilPage({ table }: { table: CouncilTable }) {
     if (!confirm(`حذف اجتماع «${m.topic}»؟`)) return;
     try {
       await deleteMeeting(table, m.id);
-      const rep = m.report_evidence_id ? reports[m.report_evidence_id] : undefined;
-      if (rep && confirm('حذف ملف التقرير المرفق أيضًا؟')) await deleteEvidence(rep.id, rep.file_path);
       load();
     } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الحذف'); }
   };
@@ -93,6 +91,11 @@ export function CouncilPage({ table }: { table: CouncilTable }) {
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 mt-6 space-y-6">
+      <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${table === 'guidance_parent_council' ? 'bg-brand-50 border-brand-100 text-brand-900' : 'bg-amber-50 border-amber-100 text-amber-900'}`}>
+        {table === 'guidance_parent_council'
+          ? 'هنا تُسجَّل اجتماعات أولياء الأمور فقط. اجتماعات الطلاب تُسجَّل في «صوت الطالب والتكريم».'
+          : 'هنا تُسجَّل اجتماعات المجلس الطلابي فقط. اجتماعات أولياء الأمور تُسجَّل في «مجلس الآباء والأمهات».'}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="إجمالي الاجتماعات" value={total} icon={Users} />
         <StatCard label="اجتماعات منعقدة" value={held} icon={CheckCircle2} tone="from-leaf-400 to-leaf-600" />
@@ -148,7 +151,7 @@ export function CouncilPage({ table }: { table: CouncilTable }) {
                 {file ? file.name : draft.report_evidence_id ? 'استبدال التقرير المرفوع' : 'اختر ملف PDF أو صورة'}
               </button>
               <input ref={input} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={e => { setFile(e.target.files?.[0] || null); e.target.value = ''; }} />
-              <p className="mt-1 text-xs text-slate-500">يُحفظ التقرير في الشواهد ويرتبط بمؤشرات الاعتماد تلقائيًا.</p>
+              <p className="mt-1 text-xs text-slate-500">يُحفظ التقرير في الشواهد ويظهر تلقائيًا في مؤشرات الاعتماد والأداء الوظيفي.</p>
             </div>
             <AutoIndicators codes={codes} />
             {error && <p className="text-sm text-rose-700">{error}</p>}

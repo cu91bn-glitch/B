@@ -6,6 +6,7 @@ import { Dialog, GhostButton, PrimaryButton, TextField } from '@/components/ui/k
 import { performanceCriteria } from '@/data';
 import { fetchPerformance, savePerformance, uploadReport, type PerformanceRow } from '@/lib/store';
 import { deleteEvidence, fetchEvidence, getEvidenceUrl, type EvidenceRecord } from '@/lib/supabase';
+import { criteriaForModule, indicatorsForModule } from '@/lib/linkage';
 
 /** ملف الأداء الوظيفي: معايير التقويم مع درجة ذاتية وشواهد لكل معيار */
 export function PerformancePage() {
@@ -19,7 +20,7 @@ export function PerformancePage() {
   const load = useCallback(async () => {
     try {
       const [p, ev] = await Promise.all([fetchPerformance(), fetchEvidence()]);
-      setRows(p); setEvidence(ev.filter(e => e.module.startsWith('criterion-')));
+      setRows(p); setEvidence(ev.filter(e => criteriaForModule(e.module).length > 0));
     } catch { setError('تعذر التحميل'); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -51,7 +52,7 @@ export function PerformancePage() {
         <div className="flex-1 min-w-[200px]">
           <p className="text-sm font-bold text-white/80">التقييم الذاتي الموزون</p>
           <p className="text-4xl font-extrabold mt-1">{pct}%</p>
-          <p className="text-sm text-white/85 mt-1">قُيّم {scored} من {performanceCriteria.length} معيار · {evidence.length} شاهد مرفوع</p>
+          <p className="text-sm text-white/85 mt-1">قُيّم {scored} من {performanceCriteria.length} معيار · {evidence.length} شاهد مرتبط تلقائيًا من كل أقسام المنصة</p>
         </div>
         <div className="w-full sm:w-64 h-3 rounded-full bg-white/20 overflow-hidden"><div className="h-full bg-white rounded-full" style={{ width: `${pct}%` }} /></div>
       </div>
@@ -59,7 +60,7 @@ export function PerformancePage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {performanceCriteria.map(c => {
-          const ev = evidence.filter(e => e.module === `criterion-${c.id}`);
+          const ev = evidence.filter(e => criteriaForModule(e.module).includes(c.id));
           const score = rows[c.id]?.score;
           return (
             <Panel key={c.id}>
@@ -89,6 +90,7 @@ export function PerformancePage() {
                     {ev.map(e => (
                       <div key={e.id} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
                         <span className="flex-1 truncate font-medium text-slate-700">{e.title}</span>
+                        {!e.module.startsWith('criterion-') && <span className="text-[10px] font-bold rounded bg-leaf-50 text-leaf-700 px-1.5 py-0.5 whitespace-nowrap">تلقائي</span>}
                         <button onClick={() => open(e)} className="p-1 text-brand-700"><ExternalLink className="w-4 h-4" /></button>
                         <button onClick={() => remove(e)} className="p-1 text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
                       </div>
@@ -122,7 +124,7 @@ function UploadDialog({ criterionId, onClose, onDone }: { criterionId: number | 
     if (!title.trim()) return setError('اكتب عنوان الشاهد');
     if (!file) return setError('اختر الملف');
     setBusy(true); setError('');
-    try { onDone(await uploadReport(file, title.trim(), `criterion-${crit.id}`, [], hijri || undefined)); }
+    try { onDone(await uploadReport(file, title.trim(), `criterion-${crit.id}`, indicatorsForModule(`criterion-${crit.id}`), hijri || undefined)); }
     catch (e) { setError(e instanceof Error ? e.message : 'تعذر الرفع'); } finally { setBusy(false); }
   };
 

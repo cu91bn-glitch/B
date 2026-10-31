@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClipboardCheck, Plus, Trash2, Edit3, Loader2, Users, Target, Sparkles, ShieldCheck, Sprout, HeartPulse, LayoutTemplate } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ClipboardCheck, Plus, Trash2, Edit3, Loader2, Users, Target, Sparkles, ShieldCheck, Sprout, HeartPulse, LayoutTemplate, Upload, FileText, Image as ImageIcon } from 'lucide-react';
+import { createEvidence, fetchEvidence, getEvidenceUrl, type EvidenceRecord } from '@/lib/supabase';
 import { Panel } from '@/components/layout/AppShell';
 import { DateField } from '@/components/ui/DateField';
 import { Badge, Dialog, Empty, GhostButton, LinesField, PrimaryButton, SelectField, StatCard, TextArea, TextField } from '@/components/ui/kit';
@@ -7,10 +8,9 @@ import { AutoIndicators } from '@/components/AutoIndicators';
 import { deleteProgram, fetchPrograms, saveProgram, PATH_LABELS, PROGRAM_STATUS_LABELS, type ProgramPath, type ProgramRecord, type ProgramStatus } from '@/lib/store';
 import { PROGRAM_NAMES, indicatorsForPrograms } from '@/lib/autoIndicators';
 import { programs as programTemplates } from '@/data';
+import { TEMPLATE_ZAD } from '@/lib/linkage';
 import { displayDate } from '@/lib/dates';
 
-// ربط النماذج الجاهزة ببرامج دليل زاد
-const TEMPLATE_ZAD = ['safe_net', 'career', 'absence_lag', 'positive', 'conduct', 'absence_lag', 'career', 'motivation', 'psychosocial', 'excellence', 'prevention', 'orientation'];
 
 type Draft = {
   id?: string; title: string; path: ProgramPath; zad_program: string; target_group: string; date: string; hijri: string;
@@ -30,9 +30,16 @@ export function ProgramsPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | ProgramPath>('all');
+  const [q, setQ] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
 
-  const load = useCallback(() => { fetchPrograms().then(setItems).catch(e => setError(e.message)); }, []);
+  const [evidence, setEvidence] = useState<EvidenceRecord[]>([]);
+  const [uploadFor, setUploadFor] = useState<ProgramRecord | null>(null);
+  const load = useCallback(() => {
+    fetchPrograms().then(setItems).catch(e => setError(e.message));
+    fetchEvidence().then(list => setEvidence(list.filter(e => e.activity_id))).catch(() => {});
+  }, []);
+  const openEv = async (e: EvidenceRecord) => { try { window.open(await getEvidenceUrl(e.file_path), '_blank', 'noopener'); } catch { setError('تعذر فتح الملف'); } };
   useEffect(load, [load]);
 
   const fromTemplate = (i: number) => {
@@ -71,7 +78,7 @@ export function ProgramsPage() {
     try { await deleteProgram(p.id); load(); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الحذف'); }
   };
 
-  const list = useMemo(() => (items || []).filter(p => filter === 'all' || p.path === filter), [items, filter]);
+  const list = useMemo(() => (items || []).filter(p => (filter === 'all' || p.path === filter) && (!q || p.title.includes(q) || (p.description || '').includes(q))), [items, filter, q]);
   const done = items?.filter(p => p.status === 'completed').length || 0;
   const beneficiaries = items?.reduce((s, p) => s + (p.beneficiaries || 0), 0) || 0;
   const covered = new Set((items || []).flatMap(p => p.indicator_codes)).size;
@@ -92,7 +99,8 @@ export function ProgramsPage() {
           <PrimaryButton onClick={() => { setDraft({ ...blank }); setError(''); }}><Plus className="w-4 h-4" /> برنامج جديد</PrimaryButton>
         </div>}
       >
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="بحث في البرامج..." className="rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm w-full sm:w-56" />
           {(['all', 'preventive', 'developmental', 'remedial'] as const).map(k => (
             <button key={k} onClick={() => setFilter(k)} className={`rounded-full px-3.5 py-1.5 text-xs font-bold border ${filter === k ? 'bg-brand-700 text-white border-brand-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
               {k === 'all' ? 'كل المسارات' : PATH_LABELS[k]}
@@ -131,7 +139,18 @@ export function ProgramsPage() {
                       <span>المستفيدون: {p.beneficiaries}</span>
                     </div>
                     {p.indicator_codes.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{p.indicator_codes.map(c => <span key={c} dir="ltr" className="text-[11px] font-bold rounded-md bg-leaf-50 text-leaf-700 px-1.5 py-0.5">{c}</span>)}</div>}
-                    <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100">
+                    {evidence.some(e => e.activity_id === p.id) && (
+                      <div className="mt-3 space-y-1">
+                        <p className="text-xs font-bold text-slate-600">شواهد البرنامج</p>
+                        {evidence.filter(e => e.activity_id === p.id).map(e => (
+                          <button key={e.id} onClick={() => openEv(e)} className="w-full flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-brand-50 text-right">
+                            {e.file_type === 'pdf' ? <FileText className="w-3.5 h-3.5 text-rose-600" /> : <ImageIcon className="w-3.5 h-3.5 text-brand-600" />}<span className="truncate">{e.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1 mt-3 pt-3 border-t border-slate-100">
+                      <GhostButton onClick={() => setUploadFor(p)}><Upload className="w-3.5 h-3.5" /> رفع شاهد</GhostButton>
                       <GhostButton onClick={() => edit(p)}><Edit3 className="w-3.5 h-3.5" /> تعديل وتوثيق النتائج</GhostButton>
                       <GhostButton tone="rose" className="mr-auto" onClick={() => remove(p)}><Trash2 className="w-3.5 h-3.5" /> حذف</GhostButton>
                     </div>
@@ -181,6 +200,46 @@ export function ProgramsPage() {
           </div>
         )}
       </Dialog>
+      <ProgramEvidenceDialog program={uploadFor} onClose={() => setUploadFor(null)} onDone={rec => { setEvidence(l => [rec, ...l]); setUploadFor(null); }} />
     </div>
+  );
+}
+
+function ProgramEvidenceDialog({ program, onClose, onDone }: { program: ProgramRecord | null; onClose: () => void; onDone: (e: EvidenceRecord) => void }) {
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState('');
+  const [hijri, setHijri] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => { setTitle(program ? program.title : ''); setFile(null); setDate(''); setHijri(''); setError(''); }, [program]);
+  const submit = async () => {
+    if (!program) return;
+    if (!title.trim()) return setError('اكتب عنوان الشاهد');
+    if (!file) return setError('اختر الملف');
+    setBusy(true); setError('');
+    try {
+      onDone(await createEvidence({
+        file, title: title.trim(), module: program.zad_program || 'general', category: program.title,
+        activityId: program.id, activityTitle: program.title, indicatorCodes: program.indicator_codes,
+        dateHijri: hijri || undefined, dateGregorian: date || undefined,
+      }));
+    } catch (e) { setError(e instanceof Error ? e.message : 'تعذر الرفع'); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog open={!!program} title={`شاهد لبرنامج: ${program?.title || ''}`} onClose={onClose}>
+      <div className="space-y-3.5">
+        <TextField label="عنوان الشاهد" required value={title} onChange={setTitle} />
+        <DateField value={date} onChange={(g, h) => { setDate(g); setHijri(h); }} />
+        <button type="button" onClick={() => input.current?.click()} className="w-full rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/50 hover:bg-brand-50 py-5 text-sm font-bold text-brand-800 flex flex-col items-center gap-1.5">
+          <Upload className="w-6 h-6 text-brand-600" />{file ? file.name : 'اختر صورة أو ملف PDF'}
+        </button>
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => { setFile(e.target.files?.[0] || null); e.target.value = ''; }} />
+        <p className="text-xs text-slate-500">يظهر الشاهد تلقائيًا في الشواهد ومؤشرات الاعتماد والأداء الوظيفي.</p>
+        {error && <p className="text-sm text-rose-700">{error}</p>}
+        <PrimaryButton onClick={submit} busy={busy} className="w-full py-3">رفع الشاهد</PrimaryButton>
+      </div>
+    </Dialog>
   );
 }

@@ -5,6 +5,7 @@ import { counselor } from '@/data';
 export interface CounselorProfile {
   name: string; title: string; school: string; ministry: string; region: string; year: string;
   email: string; phone: string; experience: string; students: number; bio: string;
+  noor?: Record<string, number | string>;
 }
 
 export const DEFAULT_PROFILE: CounselorProfile = {

@@ -178,6 +178,61 @@ export interface ConsultationRecord {
   privacy_level: string;
   message: string;
   created_at: string;
+  tracking_code: string | null;
+  contact: string | null;
+  reply: string | null;
+  replied_at: string | null;
+  status: string;
+}
+
+/** رمز متابعة قصير يسهل كتابته (بدون أحرف متشابهة) */
+export function makeTrackingCode(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+export async function replyConsultation(id: string, reply: string): Promise<void> {
+  const { error } = await supabase.from('guidance_consultations').update({ reply, replied_at: new Date().toISOString(), status: 'replied' }).eq('id', id);
+  if (error) throw new Error('تعذر حفظ الرد');
+}
+
+export type ClinicLookup =
+  | { kind: 'consultation'; type: string; status: string; reply: string | null; replied_at: string | null; created_at: string }
+  | { kind: 'appointment'; date: string; hijri: string | null; slot: string; status: string; note: string | null };
+
+export async function clinicLookup(code: string): Promise<ClinicLookup | null> {
+  const { data, error } = await supabase.rpc('clinic_lookup', { p_code: code.trim().toUpperCase() });
+  if (error) return null;
+  return (data as ClinicLookup) || null;
+}
+
+export interface AppointmentRecord {
+  id: string; tracking_code: string; student_name: string | null; student_grade: string | null; appointment_date: string;
+  appointment_hijri: string | null; slot: string; reason: string | null; status: string; staff_note: string | null; created_at: string;
+}
+
+export async function bookAppointment(a: { student_name?: string; student_grade?: string; appointment_date: string; appointment_hijri: string; slot: string; reason?: string }): Promise<string> {
+  const code = makeTrackingCode();
+  const { error } = await supabase.from('guidance_appointments').insert({ ...a, tracking_code: code, status: 'pending' });
+  if (error) throw new Error('تعذر حجز الموعد');
+  return code;
+}
+
+export async function fetchAppointments(): Promise<AppointmentRecord[]> {
+  const { data, error } = await supabase.from('guidance_appointments').select('*').order('appointment_date', { ascending: true });
+  if (error) throw new Error('تعذر تحميل المواعيد');
+  return (data || []) as AppointmentRecord[];
+}
+
+export async function updateAppointment(id: string, patch: Partial<Pick<AppointmentRecord, 'status' | 'staff_note'>>): Promise<void> {
+  const { error } = await supabase.from('guidance_appointments').update(patch).eq('id', id);
+  if (error) throw new Error('تعذر تحديث الموعد');
+}
+
+export async function deleteAppointment(id: string): Promise<void> {
+  const { error } = await supabase.from('guidance_appointments').delete().eq('id', id);
+  if (error) throw new Error('تعذر حذف الموعد');
 }
 
 export async function submitConsultation(data: {
@@ -185,14 +240,19 @@ export async function submitConsultation(data: {
   consultation_type: string;
   privacy_level: string;
   message: string;
-}): Promise<void> {
+  contact?: string;
+}): Promise<string> {
+  const code = makeTrackingCode();
   const { error } = await supabase.from('guidance_consultations').insert({
     requester_name: data.requester_name || null,
     consultation_type: data.consultation_type,
     privacy_level: data.privacy_level,
     message: data.message,
+    contact: data.contact || null,
+    tracking_code: code,
   });
   if (error) throw new Error('فشل إرسال الاستشارة');
+  return code;
 }
 
 export async function fetchConsultations(): Promise<ConsultationRecord[]> {

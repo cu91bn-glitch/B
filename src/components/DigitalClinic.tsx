@@ -4,6 +4,7 @@ import {
   Send, Shield, TrendingUp, X, FlaskConical, BookOpen, Cpu, Stethoscope,
 } from 'lucide-react';
 import { careerQuestions } from '@/data';
+import { ClinicExtras } from '@/components/ClinicExtras';
 import {
   submitConsultation, fetchConsultationStats, saveCareerResult, fetchCareerStats,
 } from '@/lib/supabase';
@@ -65,6 +66,8 @@ export function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) 
   const [privacyLevel, setPrivacyLevel] = useState('');
   const [message, setMessage] = useState('');
   const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [trackingCode, setTrackingCode] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -111,14 +114,17 @@ export function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) 
     setSubmitting(true);
     setSubmitError('');
     try {
-      await submitConsultation({
+      const code = await submitConsultation({
         requester_name: name || undefined,
         consultation_type: consultationType,
         privacy_level: privacyLevel,
         message,
+        contact: contact || undefined,
       });
+      setTrackingCode(code);
       setShowConfirm(true);
       setName('');
+      setContact('');
       setConsultationType('');
       setPrivacyLevel('');
       setMessage('');
@@ -228,6 +234,17 @@ export function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) 
                   onChange={(e) => setName(e.target.value)}
                   placeholder="يمكنك تركه فارغاً إذا رغبت في الإبلاغ بشكل مجهول"
                   className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">رقم جوال للتواصل (اختياري)</label>
+                <input
+                  type="tel"
+                  dir="ltr"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder="05xxxxxxxx — اتركه فارغًا وستتابع الرد برمز المتابعة"
+                  className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all text-right"
                 />
               </div>
 
@@ -342,6 +359,8 @@ export function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) 
             </div>
           </div>
         )}
+
+        <ClinicExtras />
 
         {/* Career survey */}
         <div className="mt-5 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white">
@@ -463,8 +482,14 @@ export function DigitalClinic({ publicMode = false }: { publicMode?: boolean }) 
             <CheckCircle2 className="w-8 h-8 text-emerald-600" />
           </div>
           <p className="text-base font-bold text-slate-800 mb-2">تم استلام رسالتك بنجاح</p>
+          {trackingCode && (
+            <div className="my-4 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50 p-4">
+              <p className="text-xs font-bold text-brand-800">رمز المتابعة — احتفظ به</p>
+              <p className="mt-1 text-3xl font-extrabold tracking-[0.25em] text-brand-900" dir="ltr">{trackingCode}</p>
+            </div>
+          )}
           <p className="text-sm text-slate-500 leading-relaxed">
-            سيتم مراجعة استشارتك والرد عليها في أقرب وقت ممكن. جميع بياناتك سرية ومحمية.
+            اكتب الرمز في «متابعة استشارة أو موعد» أسفل الصفحة لتقرأ رد الموجّه. جميع بياناتك سرية ومحمية.
           </p>
         </div>
       </Modal>

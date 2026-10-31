@@ -7,8 +7,20 @@ type Tpl = { key: string; kind: 'رضا' | 'أثر'; title: string; audience: st
 const likert = { type: 'likert5', labels: ['لا أوافق بشدة', 'لا أوافق', 'محايد', 'أوافق', 'أوافق بشدة'] };
 const grade = { id: 'grade', text: 'الصف', type: 'select', options: ['الأول الثانوي', 'الثاني الثانوي', 'الثالث الثانوي'] };
 const role = { id: 'role', text: 'الصفة', type: 'select', options: ['طالب', 'ولي أمر', 'معلم', 'أخرى'] };
+const wave = { id: 'wave', text: 'وقت التطبيق', type: 'select', options: ['قبلي (قبل البرنامج)', 'بعدي (بعد البرنامج)'] };
 
 const T: Tpl[] = [
+  {
+    key: 'student_voice', kind: 'رضا', who: 'الطلاب', title: 'استبانة صوت الطالب', audience: 'student', programs: ['council', 'psychosocial'],
+    intro: 'صوتك مسموع! شاركنا رأيك في مدرستك ومقترحاتك لتطويرها. لا تكتب اسمك، وإجابتك سرية.',
+    sections: [
+      ['البيئة المدرسية', ['أشعر بالراحة والأمان داخل المدرسة.', 'مرافق المدرسة (الفصول، المقصف، دورات المياه) مناسبة.', 'تُحترم آراء الطلاب في المدرسة.']],
+      ['العلاقة مع المعلمين والإدارة', ['يتعامل المعلمون مع الطلاب باحترام.', 'أستطيع إيصال ملاحظاتي للإدارة بسهولة.', 'تُعالج شكاوى الطلاب بعدل.']],
+      ['الأنشطة والمشاركة', ['تتنوع الأنشطة اللاصفية بما يناسب اهتماماتي.', 'يتيح المجلس الطلابي فرصة حقيقية للمشاركة.', 'أشارك في الأنشطة والفعاليات المدرسية.']],
+      ['التوجيه الطلابي', ['أعرف كيف أصل إلى الموجّه الطلابي.', 'برامج التوجيه الطلابي مفيدة لي.', 'أثق في سرية ما أقوله للموجّه.']],
+    ],
+    open: 'ما أهم شيء تتمنى تغييره أو إضافته في مدرستك؟',
+  },
   {
     key: 'student_program_satisfaction', kind: 'رضا', who: 'الطلاب', title: 'رضا الطلاب عن البرنامج الإرشادي', audience: 'student', programs: ['orientation'],
     intro: 'نرغب في معرفة رأيك في البرنامج الذي شاركت فيه لتحسينه مستقبلًا. إجابتك سرية.',
@@ -114,7 +126,7 @@ export function buildTemplate(key: string): Partial<SurveyDefinition> {
   if (!t) throw new Error('النموذج غير موجود');
   return {
     title: t.title, audience: t.audience, intro: t.intro, scale: likert, programs: t.programs,
-    demographics: [t.audience.includes('|') || t.audience !== 'student' ? role : grade],
+    demographics: [t.audience.includes('|') || t.audience !== 'student' ? role : grade, ...(t.kind === 'أثر' ? [wave] : [])],
     sections: t.sections.map(([name, items], i) => ({
       id: `s${i + 1}`, name,
       items: items.map(text => ({ text, reverse: /أتعرض للسخرية/.test(text) })),
